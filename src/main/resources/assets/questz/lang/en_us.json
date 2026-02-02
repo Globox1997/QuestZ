@@ -1,0 +1,12 @@
+{
+    "category.questz.keybind": "QuestZ",
+    "key.questz.openquestscreen": "Quest Screen",
+
+    "gui.questz": "Quests",
+
+    "text.autoconfig.questz.title": "QuestZ Config",
+    "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",
+    "text.autoconfig.questz.option.minTextWidth": "Min Text Width",
+    "text.autoconfig.questz.option.questDisplayDepth": "Quest Display Depth",
+    "text.autoconfig.questz.option.questAdvancementNamespaceIds": "Quest Advancement Namespace Ids"
+}

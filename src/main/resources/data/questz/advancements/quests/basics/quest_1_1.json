@@ -1,0 +1,151 @@
+{
+    "parent": "questz:quests/basics/quest_1",
+    "display": {
+        "icon": {
+            "item": "minecraft:oak_log"
+        },
+        "title": {
+            "text": "Become a skilled woodworker"
+        },
+        "description": {
+            "text": "Gather different types of wood.",
+            "requirement": {
+                "info": "\nRequires:",
+                "oak_log": [
+                    "\n§e- %I% 20 Oak Log"
+                ],
+                "birch_log": [
+                    "\n§e- %I% 20 Birch Log"
+                ],
+                "spruce_log": [
+                    "\n§e- %I% 20 Spruce Log"
+                ],
+                "jungle_log": [
+                    "\n§e- %I% 20 Jungle Log"
+                ],
+                "acacia_log": [
+                    "\n§e- %I% 20 Acacia Log"
+                ],
+                "dark_oak_log": [
+                    "\n§e- %I% 20 Dark Oak Log"
+                ]
+            }
+        },
+        "frame": "task",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": false
+    },
+    "criteria": {
+        "oak_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        },
+        "birch_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:birch_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        },
+        "spruce_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:spruce_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        },
+        "jungle_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:jungle_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        },
+        "acacia_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:acacia_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        },
+        "dark_oak_log": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:dark_oak_log"
+                        ],
+                        "count": {
+                            "min": 20
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "requirements": [
+        [
+            "oak_log"
+        ],
+        [
+            "birch_log"
+        ],
+        [
+            "spruce_log"
+        ],
+        [
+            "jungle_log"
+        ],
+        [
+            "acacia_log"
+        ],
+        [
+            "dark_oak_log"
+        ]
+    ]
+}

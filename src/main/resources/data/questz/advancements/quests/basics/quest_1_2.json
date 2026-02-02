@@ -1,0 +1,193 @@
+{
+    "parent": "questz:quests/basics/quest_1_1",
+    "display": {
+        "icon": {
+            "item": "minecraft:oak_door"
+        },
+        "title": {
+            "text": "Become a skilled woodworker"
+        },
+        "description": {
+            "text": "Craft various wooden items.",
+            "requirement": {
+                "info": "\nRequires crafting:",
+                "oak_door": [
+                    "\n§e- %I% 3 Oak Doors"
+                ],
+                "oak_trapdoor": [
+                    "\n§e- %I% 5 Oak Trapdoors"
+                ],
+                "oak_sign": [
+                    "\n§e- %I% 8 Oak Signs"
+                ],
+                "oak_fence": [
+                    "\n§e- %I% 16 Oak Fences"
+                ],
+                "oak_slab": [
+                    "\n§e- %I% 12 Oak Slabs"
+                ],
+                "oak_planks": [
+                    "\n§e- %I% 128 Oak Planks"
+                ],
+                "oak_button": [
+                    "\n§e- %I% 4 Oak Buttons"
+                ],
+                "oak_pressure_plate": [
+                    "\n§e- %I% 4 Oak Pressure Plates"
+                ]
+            }
+        },
+        "frame": "task",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": false
+    },
+    "criteria": {
+        "oak_door": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_door"
+                        ],
+                        "count": {
+                            "min": 3
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_trapdoor": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_trapdoor"
+                        ],
+                        "count": {
+                            "min": 5
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_sign": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_sign"
+                        ],
+                        "count": {
+                            "min": 8
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_fence": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_fence"
+                        ],
+                        "count": {
+                            "min": 16
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_slab": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_slab"
+                        ],
+                        "count": {
+                            "min": 12
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_planks": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_planks"
+                        ],
+                        "count": {
+                            "min": 128
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_button": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_button"
+                        ],
+                        "count": {
+                            "min": 4
+                        }
+                    }
+                ]
+            }
+        },
+        "oak_pressure_plate": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:oak_pressure_plate"
+                        ],
+                        "count": {
+                            "min": 4
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "requirements": [
+        [
+            "oak_door"
+        ],
+        [
+            "oak_trapdoor"
+        ],
+        [
+            "oak_sign"
+        ],
+        [
+            "oak_fence"
+        ],
+        [
+            "oak_slab"
+        ],
+        [
+            "oak_planks"
+        ],
+        [
+            "oak_button"
+        ],
+        [
+            "oak_pressure_plate"
+        ]
+    ]
+}

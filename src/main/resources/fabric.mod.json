@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "questz",
+  "version": "${version}",
+  "name": "QuestZ",
+  "description": "This is a mod which enhances the advancement system of minecraft for a simple quest system.",
+  "authors": [
+    "Globox_Z"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "MIT",
+  "icon": "assets/questz/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.questz.QuestzMain"
+    ],
+    "client": [
+      "net.questz.QuestzClient"
+    ],
+    "modmenu": [
+      "net.questz.config.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "questz.mixins.json"
+  ],
+  "depends": {
+    "java": ">=17",
+    "fabric-api": ">=${fabric_version}",
+    "fabricloader": ">=${loader_version}",
+    "cloth-config2": ">=${cloth_config_version}"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}

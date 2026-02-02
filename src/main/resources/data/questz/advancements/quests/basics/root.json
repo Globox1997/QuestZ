@@ -1,0 +1,29 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:wooden_pickaxe"
+        },
+        "title": {
+            "translate": "The Basics"
+        },
+        "description": {
+            "text": "Embark on your journey in the vast world of Minecraft by mastering the fundamental skills necessary for survival.\nThis quest line serves as a stepping stone, introducing you to essential concepts and mechanics of the game."
+        },
+        "frame": "task",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": false,
+        "background": "minecraft:textures/gui/advancements/backgrounds/stone.png"
+    },
+    "criteria": {
+        "quest_start": {
+            "trigger": "minecraft:tick",
+            "conditions": {}
+        }
+    },
+    "requirements": [
+        [
+            "quest_start"
+        ]
+    ]
+}

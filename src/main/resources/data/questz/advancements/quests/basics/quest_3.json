@@ -1,0 +1,38 @@
+{
+    "parent": "questz:quests/basics/quest_2",
+    "display": {
+        "icon": {
+            "item": "minecraft:cobblestone"
+        },
+        "title": {
+            "text": "The Basics"
+        },
+        "description": {
+            "text": "Mine for stone and upgrade your tools and weapons.",
+            "requirement": {
+                "info": "\nRequires breaking:",
+                "stone": [
+                    "\n§e- %I% 64 Stones"
+                ]
+            }
+        },
+        "frame": "task",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": false
+    },
+    "criteria": {
+        "stone": {
+            "trigger": "questz:mined_block_count",
+            "conditions": {
+                "object": "minecraft:stone",
+                "count": 3
+            }
+        }
+    },
+    "requirements": [
+        [
+            "stone"
+        ]
+    ]
+}

@@ -1,0 +1,115 @@
+{
+    "parent": "questz:quests/basics/root",
+    "display": {
+        "icon": {
+            "item": "minecraft:wooden_axe"
+        },
+        "title": {
+            "text": "The Basics"
+        },
+        "description": {
+            "text": "Gather wood and craft a set of basic tools.",
+            "requirement": {
+                "info": "\nRequires crafting:",
+                "wooden_axe": [
+                    "\n§e- %I% Wooden Axe"
+                ],
+                "wooden_hoe": [
+                    "\n§e- %I% Wooden Hoe"
+                ],
+                "wooden_sword": [
+                    "\n§e- %I% Wooden Sword"
+                ],
+                "wooden_pickaxe": [
+                    "\n§e- %I% Wooden Pickaxe"
+                ],
+                "wooden_shovel": [
+                    "\n§e- %I% Wooden Shovel"
+                ]
+            }
+        },
+        "frame": "task",
+        "show_toast": false,
+        "announce_to_chat": false,
+        "hidden": false
+    },
+    "criteria": {
+        "wooden_axe": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:wooden_axe"
+                        ]
+                    }
+                ]
+            }
+        },
+        "wooden_hoe": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:wooden_hoe"
+                        ]
+                    }
+                ]
+            }
+        },
+        "wooden_sword": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:wooden_sword"
+                        ]
+                    }
+                ]
+            }
+        },
+        "wooden_shovel": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:wooden_shovel"
+                        ]
+                    }
+                ]
+            }
+        },
+        "wooden_pickaxe": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": [
+                            "minecraft:wooden_pickaxe"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "requirements": [
+        [
+            "wooden_axe"
+        ],
+        [
+            "wooden_hoe"
+        ],
+        [
+            "wooden_sword"
+        ],
+        [
+            "wooden_shovel"
+        ],
+        [
+            "wooden_pickaxe"
+        ]
+    ]
+}
