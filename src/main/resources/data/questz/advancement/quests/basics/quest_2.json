@@ -2,25 +2,25 @@
     "parent": "questz:quests/basics/quest_1",
     "display": {
         "icon": {
-            "item": "minecraft:oak_planks"
+            "id": "minecraft:oak_planks"
         },
         "title": {
             "text": "The Basics"
         },
         "description": {
-            "text": "Build a simple shelter to protect yourself from monsters.",
-            "requirement": {
-                "info": "\nRequires placement:",
-                "oak_planks": [
-                    "\n§e- %I% 30 Oak Planks"
-                ],
-                "oak_door": [
-                    "\n§e- %I% 1 Oak Door"
-                ],
-                "chest": [
-                    "\n§e- %I% 1 Chest"
-                ]
-            }
+            "text": "Build a simple shelter to protect yourself from monsters."
+        },
+        "requirement": {
+            "info": "\nRequires placement:",
+            "oak_planks": [
+                "\n§e- %I% 30 Oak Planks"
+            ],
+            "oak_door": [
+                "\n§e- %I% 1 Oak Door"
+            ],
+            "chest": [
+                "\n§e- %I% 1 Chest"
+            ]
         },
         "frame": "task",
         "show_toast": false,

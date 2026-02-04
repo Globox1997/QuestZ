@@ -3,6 +3,18 @@
     "key.questz.openquestscreen": "Quest Screen",
 
     "gui.questz": "Quests",
+    "gui.questz.newQuest": "new Quest",
+    "gui.questz.title": "Titel",
+    "gui.questz.description": "Description",
+    "gui.questz.icon": "Icon",
+    "gui.questz.save": "Save",
+    "gui.questz.parent": "Parent",
+    "gui.questz.requirement": "Requirement Info",
+    "gui.questz.frame": "Frame: %s",
+    "gui.questz.toast": "Toast: %s",
+    "gui.questz.chat": "Chat: %s",
+    "gui.questz.hidden": "Hidden: %s",
+    "gui.questz.example": "Example...",
 
     "text.autoconfig.questz.title": "QuestZ Config",
     "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",

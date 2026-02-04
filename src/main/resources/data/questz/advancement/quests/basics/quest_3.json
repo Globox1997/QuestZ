@@ -2,7 +2,7 @@
     "parent": "questz:quests/basics/quest_2",
     "display": {
         "icon": {
-            "item": "minecraft:cobblestone"
+            "id": "minecraft:cobblestone"
         },
         "title": {
             "text": "The Basics"

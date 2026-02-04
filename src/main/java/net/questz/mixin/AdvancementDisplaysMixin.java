@@ -15,7 +15,7 @@ public class AdvancementDisplaysMixin {
         return ConfigInit.CONFIG.questDisplayDepth;
     }
 
-    @ModifyConstant(method = "shouldDisplay", constant = @Constant(intValue = 2))
+    @ModifyConstant(method = "shouldDisplay(Lit/unimi/dsi/fastutil/Stack;)Z", constant = @Constant(intValue = 2))
     private static int shouldDisplayModifyMixin(int original) {
         return ConfigInit.CONFIG.questDisplayDepth;
     }

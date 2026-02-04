@@ -3,14 +3,13 @@
   "minVersion": "0.8",
   "package": "net.questz.mixin",
   "compatibilityLevel": "JAVA_17",
-  "accessWidener": "questz.aw",
   "mixins": [
+    "AdvancementDisplayMixin",
     "AdvancementDisplaysMixin",
-    "ServerPlayerEntityMixin",
-    "AdvancementDisplayMixin"
+    "ServerPlayerEntityMixin"
   ],
   "client": [
-    "AdvancementsScreenMixin"
+    "client.AdvancementsScreenMixin",
   ],
   "injectors": {
     "defaultRequire": 1

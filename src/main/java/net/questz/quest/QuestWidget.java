@@ -2,15 +2,11 @@ package net.questz.quest;
 
 import com.google.common.collect.Lists;
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.advancement.Advancement;
 import net.minecraft.advancement.AdvancementDisplay;
 import net.minecraft.advancement.AdvancementProgress;
+import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextHandler;
 import net.minecraft.client.gui.DrawContext;
@@ -20,55 +16,74 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.StringVisitable;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.text.Texts;
+import net.minecraft.text.*;
+import net.minecraft.util.Colors;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
 import net.questz.init.ConfigInit;
-
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 @Environment(EnvType.CLIENT)
 public class QuestWidget extends AdvancementWidget {
-    private static final Identifier WIDGETS_TEXTURE = new Identifier("textures/gui/advancements/widgets.png");
-    private static final int[] SPLIT_OFFSET_CANDIDATES = new int[] { 0, 10, -10, 25, -25 };
+    private static final Identifier TITLE_BOX_TEXTURE = Identifier.ofVanilla("advancements/title_box");
+
+    private static final int[] SPLIT_OFFSET_CANDIDATES = new int[]{0, 10, -10, 25, -25};
     private final QuestTab tab;
-    private final Advancement advancement;
+    private final PlacedAdvancement advancement;
     private final AdvancementDisplay display;
     private final OrderedText title;
-    private final MinecraftClient client;
-    private final List<QuestWidget> children = Lists.newArrayList();
-
-    private List<Object> itemRenderList = new ArrayList<Object>();
     private int width;
     private List<OrderedText> description;
+    private final List<Object> itemRenderList = new ArrayList<>();
+    private final MinecraftClient client;
     @Nullable
     private QuestWidget parent;
+    private final List<QuestWidget> children = Lists.newArrayList();
     @Nullable
     private AdvancementProgress progress;
     private final int x;
     private final int y;
 
-    public QuestWidget(QuestTab tab, MinecraftClient client, Advancement advancement, AdvancementDisplay display) {
+    public QuestWidget(QuestTab tab, MinecraftClient client, PlacedAdvancement advancement, AdvancementDisplay display) {
         super(tab, client, advancement, display);
         this.tab = tab;
         this.advancement = advancement;
         this.display = display;
         this.client = client;
         this.title = Language.getInstance().reorder(client.textRenderer.trimToWidth(display.getTitle(), 163));
-        this.x = MathHelper.floor(display.getX() * 28.0f);
-        this.y = MathHelper.floor(display.getY() * 27.0f);
+        this.x = MathHelper.floor(display.getX() * 28.0F);
+        this.y = MathHelper.floor(display.getY() * 27.0F);
+        int i = this.getProgressWidth();
+        int j = 29 + client.textRenderer.getWidth(this.title) + i;
+//        this.description = Language.getInstance()
+//                .reorder(this.wrapDescription(Texts.setStyleIfAbsent(display.getDescription().copy(), Style.EMPTY.withColor(display.getFrame().getTitleFormat())), j));
+//
+//        for (OrderedText orderedText : this.description) {
+//            j = Math.max(j, client.textRenderer.getWidth(orderedText));
+//        }
+
+        this.width = j + 3 + 5;
 
         if (!display.getDescription().copy().getString().contains("QK:")) {
             setWidthAndDescription(display.getDescription());
+        }
+    }
+
+    private int getProgressWidth() {
+        int i = this.advancement.getAdvancement().requirements().getLength();
+        if (i <= 1) {
+            return 0;
+        } else {
+            int j = 8;
+            Text text = Text.translatable("advancements.progress", i, i);
+            return this.client.textRenderer.getWidth(text) + 8;
         }
     }
 
@@ -80,39 +95,41 @@ public class QuestWidget extends AdvancementWidget {
         TextHandler textHandler = this.client.textRenderer.getTextHandler();
         List<StringVisitable> list = null;
         float f = Float.MAX_VALUE;
+
         for (int i : SPLIT_OFFSET_CANDIDATES) {
             List<StringVisitable> list2 = textHandler.wrapLines(text, width - i, Style.EMPTY);
-            float g = Math.abs(QuestWidget.getMaxWidth(textHandler, list2) - (float) width);
-            if (g <= 10.0f) {
+            float g = Math.abs(getMaxWidth(textHandler, list2) - width);
+            if (g <= 10.0F) {
                 return list2;
             }
-            if (!(g < f))
-                continue;
-            f = g;
-            list = list2;
+
+            if (g < f) {
+                f = g;
+                list = list2;
+            }
         }
+
         return list;
     }
 
     @Nullable
-    private QuestWidget getParent(Advancement advancement) {
-        while ((advancement = advancement.getParent()) != null && advancement.getDisplay() == null) {
-        }
-        if (advancement == null || advancement.getDisplay() == null) {
-            return null;
-        }
-        return this.tab.getWidget(advancement);
+    private QuestWidget getParent(PlacedAdvancement advancement) {
+        do {
+            advancement = advancement.getParent();
+        } while (advancement != null && advancement.getAdvancement().display().isEmpty());
+
+        return advancement != null && !advancement.getAdvancement().display().isEmpty() ? this.tab.getWidget(advancement.getAdvancementEntry()) : null;
     }
 
+    @Override
     public void renderLines(DrawContext context, int x, int y, boolean border) {
         if (this.parent != null) {
-
             int i = x + this.parent.x + 13;
             int j = x + this.parent.x + 26 + 4;
             int k = y + this.parent.y + 13;
             int l = x + this.x + 13;
             int m = y + this.y + 13;
-            int n = border ? -16777216 : -1;
+            int n = border ? Colors.BLACK : Colors.WHITE;
             if (border) {
                 context.drawHorizontalLine(j, i, k - 1, n);
                 context.drawHorizontalLine(j + 1, i, k, n);
@@ -128,27 +145,38 @@ public class QuestWidget extends AdvancementWidget {
                 context.drawVerticalLine(j, m, k, n);
             }
         }
+
         for (QuestWidget advancementWidget : this.children) {
             advancementWidget.renderLines(context, x, y, border);
         }
     }
 
+    @Override
     public void renderWidgets(DrawContext context, int x, int y) {
         if (!this.display.isHidden() || this.progress != null && this.progress.isDone()) {
-            float f = this.progress == null ? 0.0f : this.progress.getProgressBarPercentage();
-            AdvancementObtainedStatus advancementObtainedStatus = f >= 1.0f ? AdvancementObtainedStatus.OBTAINED : AdvancementObtainedStatus.UNOBTAINED;
-            context.drawTexture(WIDGETS_TEXTURE, x + this.x + 3, y + this.y, this.display.getFrame().getTextureV(), 128 + advancementObtainedStatus.getSpriteIndex() * 26, 26, 26);
+            float f = this.progress == null ? 0.0F : this.progress.getProgressBarPercentage();
+            AdvancementObtainedStatus advancementObtainedStatus;
+            if (f >= 1.0F) {
+                advancementObtainedStatus = AdvancementObtainedStatus.OBTAINED;
+            } else {
+                advancementObtainedStatus = AdvancementObtainedStatus.UNOBTAINED;
+            }
+
+            context.drawGuiTexture(advancementObtainedStatus.getFrameTexture(this.display.getFrame()), x + this.x + 3, y + this.y, 26, 26);
             context.drawItemWithoutEntity(this.display.getIcon(), x + this.x + 8, y + this.y + 5);
         }
+
         for (QuestWidget advancementWidget : this.children) {
             advancementWidget.renderWidgets(context, x, y);
         }
     }
 
+    @Override
     public int getWidth() {
         return this.width;
     }
 
+    @Override
     public void setProgress(AdvancementProgress progress) {
         this.progress = progress;
     }
@@ -157,6 +185,7 @@ public class QuestWidget extends AdvancementWidget {
         this.children.add(widget);
     }
 
+    @Override
     public void drawTooltip(DrawContext context, int originX, int originY, float alpha, int x, int y) {
         if (this.description == null) {
             if (this.progress != null) {
@@ -174,7 +203,10 @@ public class QuestWidget extends AdvancementWidget {
                         String newText = siblings.get(i).copyContentOnly().getString().replace("QK:" + subString + "*", "");
                         if (subString != null && newText.contains("%I%")) {
 
-                            Item item = Registries.ITEM.get(new Identifier(subString));
+                            if(!subString.contains(":")){
+                                subString = "minecraft:"+subString;
+                            }
+                            Item item = Registries.ITEM.get(Identifier.of(subString));
                             if (item != Items.AIR) {
 
                                 String widthString = newText.replace(newText.substring(newText.indexOf("§"), newText.indexOf("§") + 2), "");
@@ -209,16 +241,17 @@ public class QuestWidget extends AdvancementWidget {
             }
             return;
         }
-        AdvancementObtainedStatus advancementObtainedStatus3;
-        AdvancementObtainedStatus advancementObtainedStatus2;
-        AdvancementObtainedStatus advancementObtainedStatus;
+
         boolean bl = x + originX + this.x + this.width + 26 >= this.tab.getScreen().width;
-        String string = this.progress == null ? null : this.progress.getProgressBarFraction();
-        int i = string == null ? 0 : this.client.textRenderer.getWidth(string);
-        boolean bl2 = 179 - originY - this.y - 26 <= 6 + this.description.size() * this.client.textRenderer.fontHeight;
-        float f = this.progress == null ? 0.0f : this.progress.getProgressBarPercentage();
-        int j = MathHelper.floor(f * (float) this.width);
-        if (f >= 1.0f) {
+        Text text = this.progress == null ? null : this.progress.getProgressBarFraction();
+        int i = text == null ? 0 : this.client.textRenderer.getWidth(text);
+        boolean bl2 = 179 - originY - this.y - 26 <= 6 + this.description.size() * 9;
+        float f = this.progress == null ? 0.0F : this.progress.getProgressBarPercentage();
+        int j = MathHelper.floor(f * this.width);
+        AdvancementObtainedStatus advancementObtainedStatus;
+        AdvancementObtainedStatus advancementObtainedStatus2;
+        AdvancementObtainedStatus advancementObtainedStatus3;
+        if (f >= 1.0F) {
             j = this.width / 2;
             advancementObtainedStatus = AdvancementObtainedStatus.OBTAINED;
             advancementObtainedStatus2 = AdvancementObtainedStatus.OBTAINED;
@@ -238,47 +271,57 @@ public class QuestWidget extends AdvancementWidget {
             advancementObtainedStatus2 = AdvancementObtainedStatus.UNOBTAINED;
             advancementObtainedStatus3 = AdvancementObtainedStatus.UNOBTAINED;
         }
+
         int k = this.width - j;
         RenderSystem.enableBlend();
         int l = originY + this.y;
-        int m = bl ? originX + this.x - this.width + 26 + 6 : originX + this.x;
-        int n = 32 + this.description.size() * this.client.textRenderer.fontHeight;
+        int m;
+        if (bl) {
+            m = originX + this.x - this.width + 26 + 6;
+        } else {
+            m = originX + this.x;
+        }
+
+        int n = 32 + this.description.size() * 9;
         if (!this.description.isEmpty()) {
             if (bl2) {
-                context.drawNineSlicedTexture(WIDGETS_TEXTURE, m, l + 26 - n, this.width, n, 10, 200, 26, 0, 52);
+                context.drawGuiTexture(TITLE_BOX_TEXTURE, m, l + 26 - n, this.width, n);
             } else {
-                context.drawNineSlicedTexture(WIDGETS_TEXTURE, m, l, this.width, n, 10, 200, 26, 0, 52);
+                context.drawGuiTexture(TITLE_BOX_TEXTURE, m, l, this.width, n);
             }
         }
-        context.drawTexture(WIDGETS_TEXTURE, m, l, 0, advancementObtainedStatus.getSpriteIndex() * 26, j, 26);
-        context.drawTexture(WIDGETS_TEXTURE, m + j, l, 200 - k, advancementObtainedStatus2.getSpriteIndex() * 26, k, 26);
-        context.drawTexture(WIDGETS_TEXTURE, originX + this.x + 3, originY + this.y, this.display.getFrame().getTextureV(), 128 + advancementObtainedStatus3.getSpriteIndex() * 26, 26, 26);
+
+        context.drawGuiTexture(advancementObtainedStatus.getBoxTexture(), 200, 26, 0, 0, m, l, j, 26);
+        context.drawGuiTexture(advancementObtainedStatus2.getBoxTexture(), 200, 26, 200 - k, 0, m + j, l, k, 26);
+        context.drawGuiTexture(advancementObtainedStatus3.getFrameTexture(this.display.getFrame()), originX + this.x + 3, originY + this.y, 26, 26);
         if (bl) {
             context.drawTextWithShadow(this.client.textRenderer, this.title, m + 5, originY + this.y + 9, -1);
-            if (string != null) {
-                context.drawTextWithShadow(this.client.textRenderer, string, originX + this.x - i, originY + this.y + 9, -1);
+            if (text != null) {
+                context.drawTextWithShadow(this.client.textRenderer, text, originX + this.x - i, originY + this.y + 9, Colors.WHITE);
             }
         } else {
             context.drawTextWithShadow(this.client.textRenderer, this.title, originX + this.x + 32, originY + this.y + 9, -1);
-            if (string != null) {
-                context.drawTextWithShadow(this.client.textRenderer, string, originX + this.x + this.width - i - 5, originY + this.y + 9, -1);
+            if (text != null) {
+                context.drawTextWithShadow(this.client.textRenderer, text, originX + this.x + this.width - i - 5, originY + this.y + 9, Colors.WHITE);
             }
         }
+
         if (bl2) {
-            for (int o = 0; o < this.description.size(); ++o) {
+            for (int o = 0; o < this.description.size(); o++) {
                 int posX = m + 5;
                 int posY = l + 26 - n + 7 + o * this.client.textRenderer.fontHeight;
                 drawItem(context, o, posX, posY);
-                context.drawText(this.client.textRenderer, this.description.get(o), posX, posY, -5592406, false);
+                context.drawText(this.client.textRenderer,  this.description.get(o), m + 5, l + 26 - n + 7 + o * 9, -5592406, false);
             }
         } else {
-            for (int o = 0; o < this.description.size(); ++o) {
+            for (int o = 0; o < this.description.size(); o++) {
                 int posX = m + 5;
                 int posY = originY + this.y + 9 + 17 + o * this.client.textRenderer.fontHeight;
                 drawItem(context, o, posX, posY);
-                context.drawText(this.client.textRenderer, this.description.get(o), posX, posY, -5592406, false);
+                context.drawText(this.client.textRenderer, this.description.get(o), m + 5, originY + this.y + 9 + 17 + o * 9, -5592406, false);
             }
         }
+
         context.drawItemWithoutEntity(this.display.getIcon(), originX + this.x + 8, originY + this.y + 5);
     }
 
@@ -298,19 +341,20 @@ public class QuestWidget extends AdvancementWidget {
         }
     }
 
-    public boolean shouldRender(DrawContext context, int originX, int originY, int mouseX, int mouseY) {
-        if (this.display.isHidden() && (this.progress == null || !this.progress.isDone())) {
+    @Override
+    public boolean shouldRender(int originX, int originY, int mouseX, int mouseY) {
+        if (!this.display.isHidden() || this.progress != null && this.progress.isDone()) {
+            int i = originX + this.x;
+            int j = i + 26;
+            int k = originY + this.y;
+            int l = k + 26;
+            return mouseX >= i && mouseX <= j && mouseY >= k && mouseY <= l;
+        } else {
             return false;
         }
-        float scale = this.tab.getTabScale();
-
-        int i = Math.round(scale * (originX + this.x));
-        int j = i + Math.round(scale * 26);
-        int k = Math.round(scale * (originY + this.y));
-        int l = k + Math.round(scale * 26);
-        return mouseX >= i && mouseX <= j && mouseY >= k && mouseY <= l;
     }
 
+    @Override
     public void addToTree() {
         if (this.parent == null && this.advancement.getParent() != null) {
             this.parent = this.getParent(this.advancement);
@@ -320,16 +364,22 @@ public class QuestWidget extends AdvancementWidget {
         }
     }
 
+    @Override
     public int getY() {
         return this.y;
     }
 
+    @Override
     public int getX() {
         return this.x;
     }
 
+    public PlacedAdvancement getAdvancement() {
+        return this.advancement;
+    }
+
     private void setWidthAndDescription(Text description) {
-        int i = advancement.getRequirementCount();
+        int i = advancement.getAdvancement().requirements().getLength();
         int j = String.valueOf(i).length();
         int k = i > 1 ? client.textRenderer.getWidth("  ") + client.textRenderer.getWidth("0") * j * 2 + client.textRenderer.getWidth("/") : 0;
 

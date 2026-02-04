@@ -2,7 +2,7 @@
     "parent": "questz:quests/basics/quest_3_2",
     "display": {
         "icon": {
-            "item": "minecraft:cobblestone"
+            "id": "minecraft:cobblestone"
         },
         "title": {
             "text": "Become a skilled stonemason"

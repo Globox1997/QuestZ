@@ -3,6 +3,7 @@
   "id": "questz",
   "version": "${version}",
   "name": "QuestZ",
+  "accessWidener": "questz.aw",
   "description": "This is a mod which enhances the advancement system of minecraft for a simple quest system.",
   "authors": [
     "Globox_Z"

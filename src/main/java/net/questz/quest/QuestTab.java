@@ -1,17 +1,17 @@
 package net.questz.quest;
 
 import com.google.common.collect.Maps;
-
-import java.util.Map;
-import java.util.Objects;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.advancement.Advancement;
 import net.minecraft.advancement.AdvancementDisplay;
+import net.minecraft.advancement.AdvancementEntry;
+import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.advancement.AdvancementTab;
 import net.minecraft.client.gui.screen.advancement.AdvancementTabType;
+import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
+import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
 import net.minecraft.client.texture.TextureManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
@@ -19,31 +19,39 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+import java.util.Optional;
+
 @Environment(EnvType.CLIENT)
 public class QuestTab extends AdvancementTab {
     private final MinecraftClient client;
-    private final QuestScreen screen;
+    private final AdvancementsScreen screen;
     private final AdvancementTabType type;
     private final int index;
-    private final Advancement root;
+    private final PlacedAdvancement root;
     private final AdvancementDisplay display;
     private final ItemStack icon;
     private final Text title;
     private final QuestWidget rootWidget;
-    private final Map<Advancement, QuestWidget> widgets = Maps.newLinkedHashMap();
+    private final Map<AdvancementEntry, QuestWidget> widgets = Maps.newLinkedHashMap();
     private double originX;
     private double originY;
     private int minPanX = Integer.MAX_VALUE;
     private int minPanY = Integer.MAX_VALUE;
     private int maxPanX = Integer.MIN_VALUE;
     private int maxPanY = Integer.MIN_VALUE;
+
+    private QuestWidget hoveredWidget = null;
+
     private int oldMaxPanX = 0;
     private int oldMaxPanY = 0;
-    private float alpha;
-    private boolean initialized;
     private float tabScale = 1.0f;
 
-    public QuestTab(MinecraftClient client, QuestScreen screen, AdvancementTabType type, int index, Advancement root, AdvancementDisplay display) {
+    private float alpha;
+    private boolean initialized;
+
+    public QuestTab(MinecraftClient client, AdvancementsScreen screen, AdvancementTabType type, int index, PlacedAdvancement root, AdvancementDisplay display) {
+
         super(client, screen, type, index, root, display);
         this.client = client;
         this.screen = screen;
@@ -54,90 +62,80 @@ public class QuestTab extends AdvancementTab {
         this.icon = display.getIcon();
         this.title = display.getTitle();
         this.rootWidget = new QuestWidget(this, client, root, display);
-        this.addWidget(this.rootWidget, root);
+        this.addWidget(this.rootWidget, root.getAdvancementEntry());
     }
 
+    @Override
     public AdvancementTabType getType() {
         return this.type;
     }
 
+    @Override
     public int getIndex() {
         return this.index;
     }
 
-    public Advancement getRoot() {
+    @Override
+    public PlacedAdvancement getRoot() {
         return this.root;
     }
 
+    @Override
     public Text getTitle() {
         return this.title;
     }
 
+    @Override
     public AdvancementDisplay getDisplay() {
         return this.display;
     }
 
+    @Override
     public void drawBackground(DrawContext context, int x, int y, boolean selected) {
         this.type.drawBackground(context, x, y, selected, this.index);
     }
 
+    @Override
     public void drawIcon(DrawContext context, int x, int y) {
         this.type.drawIcon(context, x, y, this.index, this.icon);
     }
 
+    @Override
     public void render(DrawContext context, int x, int y) {
         if (!this.initialized) {
+//            this.originX = 117 - (this.maxPanX + this.minPanX) / 2;
+//            this.originY = 56 - (this.maxPanY + this.minPanY) / 2;
 
-            // System.out.println("BEFORE INIT: " + this.maxPanX + " : " + this.maxPanY);
+//            if (238.0f / (float) this.maxPanX < 1.0f) {
+//                setTabScale(238.0f / (float) this.maxPanX, true);
+//                this.maxPanX *= this.tabScale;
+//                this.maxPanY *= this.tabScale;
+//            }
+//            System.out.println(this.maxPanX+ " : "+this.maxPanY);
+//            System.out.println(this.oldMaxPanX+ " : "+this.tabScale);
+//
+//            this.originX = (119.0f - (this.oldMaxPanX + this.minPanX) * this.tabScale / 2f);
+//            this.originY = ((89.5f * (1.0f + 1.0f - this.tabScale)) - (this.oldMaxPanY + this.minPanY) * this.tabScale / 2f);
+            float contentCenterX = (this.minPanX + this.maxPanX) / 2.0f;
+            float contentCenterY = (this.minPanY + this.maxPanY) / 2.0f;
 
-            // if (this.maxPanX < 238) {
-            // this.maxPanX = Math.max(this.maxPanX, 238);
-            // this.minPanX = Math.min(this.minPanY, 0);
-            // this.oldMaxPanX = this.maxPanX;
-            // }
-            // if (this.maxPanY < 179) {
-            // this.maxPanY = Math.max(this.maxPanY, 179);
-            // this.minPanY = Math.min(this.minPanX, 0);
-            // this.oldMaxPanY = this.maxPanY;
-            // }
-
-            if (238.0f / (float) this.maxPanX < 1.0f) {
-                setTabScale(238.0f / (float) this.maxPanX, true);
-                this.maxPanX *= this.tabScale;
-                this.maxPanY *= this.tabScale;
-            }
-
-            // float test = 1.0f + this.tabScale;
-
-            this.originX = (119.0f - (this.oldMaxPanX + this.minPanX) * this.tabScale / 2f);
-            this.originY = ((89.5f * (1.0f + 1.0f - this.tabScale)) - (this.oldMaxPanY + this.minPanY) * this.tabScale / 2f);
-            // this.originX = (119.0f - (this.oldMaxPanX + this.minPanX) * this.tabScale / 2f);
-            // this.originY = (89.5f - (this.oldMaxPanY + this.minPanY) * this.tabScale / 2f);
-
-            // 83,13,0
-            // System.out.println(this.originY + " : " + this.maxPanY + " : " + this.minPanY);
-            // this.originX = (119.0f - (this.maxPanX + this.minPanX) / 2f) * this.tabScale;
-            // this.originY = (89.5f - (this.maxPanY + this.minPanY) / 2f) * this.tabScale;
-
-            // System.out.println(this.originX + " : " + this.originY);
-
-            // context.enableScissor(x, y, x + 234, y + 113);
-            // this.originX = 117 - (this.maxPanX + this.minPanX) / 2;
-            // this.originY = 56 - (this.maxPanY + this.minPanY) / 2;
-
-            // this.originX = (119.0f - (this.maxPanX + this.minPanX) / 2f) * this.tabScale;
-            // this.originY = (89.5f - (this.maxPanY + this.minPanY) / 2f) * this.tabScale;
+            // 2. Berechne den Offset, um diesen Punkt in die Mitte des 238x179 Fensters zu schieben
+            // Formel: (FensterMitte / Scale) - InhaltsMitte
+            this.originX = (119.0f / this.tabScale) - contentCenterX;
+            this.originY = (89.5f / this.tabScale) - contentCenterY;
 
             this.initialized = true;
         }
+
         context.enableScissor(x, y, x + 238, y + 179);
         context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0.0f);
-        Identifier identifier = Objects.requireNonNullElse(this.display.getBackground(), TextureManager.MISSING_IDENTIFIER);
+        context.getMatrices().translate((float) x, (float) y, 0.0F);
+        Identifier identifier = this.display.getBackground().orElse(TextureManager.MISSING_IDENTIFIER);
         int i = MathHelper.floor(this.originX);
         int j = MathHelper.floor(this.originY);
         int k = i % 16;
         int l = j % 16;
+
         context.getMatrices().scale(this.tabScale, this.tabScale, 1.0f);
 
         float multiplier = MathHelper.square(1.0f + (1.0f - this.tabScale));
@@ -157,67 +155,111 @@ public class QuestTab extends AdvancementTab {
         context.disableScissor();
     }
 
+    @Override
     public void drawWidgetTooltip(DrawContext context, int mouseX, int mouseY, int x, int y) {
         context.getMatrices().push();
-        context.getMatrices().translate(0.0f, 0.0f, -200.0f);
-        context.fill(0, 0, 238, 179, MathHelper.floor(this.alpha * 255.0f) << 24);
+        context.getMatrices().translate(0.0F, 0.0F, 400.0F);
+        context.fill(0, 0, 238, 179, MathHelper.floor(this.alpha * 255.0F) << 24);
         boolean bl = false;
         int i = MathHelper.floor(this.originX);
         int j = MathHelper.floor(this.originY);
-        context.getMatrices().scale(this.tabScale, this.tabScale, 1.0f);
+
+        float scale = this.tabScale;
+
+        int virtualMouseX = MathHelper.floor(mouseX / scale);
+        int virtualMouseY = MathHelper.floor(mouseY / scale);
+
         if (mouseX > 0 && mouseX < 238 && mouseY > 0 && mouseY < 179) {
             for (QuestWidget advancementWidget : this.widgets.values()) {
-                if (!advancementWidget.shouldRender(context, i, j, mouseX, mouseY)) {
-                    continue;
+                if (advancementWidget.shouldRender(i, j, virtualMouseX, virtualMouseY)) {
+                    bl = true;
+
+                    int screenWidgetX = MathHelper.floor((this.originX + advancementWidget.getX()) * this.tabScale);
+                    int screenWidgetY = MathHelper.floor((this.originY + advancementWidget.getY()) * this.tabScale);
+
+                    context.getMatrices().translate((float)screenWidgetX, (float)screenWidgetY, 0.0F);
+                    context.getMatrices().scale(scale,scale,1.0f);
+
+                    int fakeOriginX = -advancementWidget.getX();
+                    int fakeOriginY = -advancementWidget.getY();
+
+                    advancementWidget.drawTooltip(context, fakeOriginX, fakeOriginY, this.alpha, x, y);
+                    this.hoveredWidget = advancementWidget;
+                    break;
                 }
-                bl = true;
-                advancementWidget.drawTooltip(context, i, j, this.alpha, x, y);
-                break;
             }
         }
+
         context.getMatrices().pop();
-        this.alpha = bl ? MathHelper.clamp(this.alpha + 0.02f, 0.0f, 0.3f) : MathHelper.clamp(this.alpha - 0.04f, 0.0f, 1.0f);
+        if (bl) {
+            this.alpha = MathHelper.clamp(this.alpha + 0.02F, 0.0F, 0.3F);
+        } else {
+            this.alpha = MathHelper.clamp(this.alpha - 0.04F, 0.0F, 1.0F);
+            this.hoveredWidget = null;
+        }
     }
 
+    @Override
     public boolean isClickOnTab(int screenX, int screenY, double mouseX, double mouseY) {
         return this.type.isClickOnTab(screenX, screenY, this.index, mouseX, mouseY);
     }
 
     @Nullable
-    public static QuestTab create(MinecraftClient client, QuestScreen screen, int index, Advancement root) {
-        if (root.getDisplay() == null) {
+    public static QuestTab create(MinecraftClient client, AdvancementsScreen screen, int index, PlacedAdvancement root) {
+        Optional<AdvancementDisplay> optional = root.getAdvancement().display();
+        if (optional.isEmpty()) {
+            return null;
+        } else {
+            for (AdvancementTabType advancementTabType : AdvancementTabType.values()) {
+                if (index < advancementTabType.getTabCount()) {
+                    return new QuestTab(client, screen, advancementTabType, index, root, (AdvancementDisplay) optional.get());
+                }
+
+                index -= advancementTabType.getTabCount();
+            }
+
             return null;
         }
-        for (AdvancementTabType advancementTabType : AdvancementTabType.values()) {
-            if (index >= advancementTabType.getTabCount()) {
-                index -= advancementTabType.getTabCount();
-                continue;
-            }
-            return new QuestTab(client, screen, advancementTabType, index, root, root.getDisplay());
-        }
-        return null;
     }
 
+    @Override
     public void move(double offsetX, double offsetY) {
-        this.originX = MathHelper.clamp(this.originX + offsetX, -10000.0D, 10000.0D);
-        this.originY = MathHelper.clamp(this.originY + offsetY, -10000.0D, 10000.0D);
-        // if (this.oldMaxPanX - this.minPanX > 238) {
-        // this.originX = MathHelper.clamp(this.originX + offsetX, -this.maxPanX + 188D, 50.0D);
-        // }
-        // if (this.oldMaxPanY - this.minPanY > 179) {
-        // this.originY = MathHelper.clamp(this.originY + offsetY, -this.maxPanY + 129D, 50.0D);
-        // }
-    }
+//        this.originX = MathHelper.clamp(this.originX + offsetX, -10000.0D, 10000.0D);
+//        this.originY = MathHelper.clamp(this.originY + offsetY, -10000.0D, 10000.0D);
 
-    public void addAdvancement(Advancement advancement) {
-        if (advancement.getDisplay() == null) {
-            return;
+        double contentWidth = (this.maxPanX - this.minPanX) * this.tabScale;
+        double contentHeight = (this.maxPanY - this.minPanY) * this.tabScale;
+
+        if (contentWidth > 238) {
+            this.originX = MathHelper.clamp(this.originX + offsetX, (double) (238f - contentWidth), 0.0f);
+        } else {
+            this.originX += offsetX;
         }
-        QuestWidget advancementWidget = new QuestWidget(this, this.client, advancement, advancement.getDisplay());
-        this.addWidget(advancementWidget, advancement);
+
+        if (contentHeight > 179) {
+            this.originY = MathHelper.clamp(this.originY + offsetY, (double) (179f - contentHeight), 0.0f);
+        } else {
+            this.originY += offsetY;
+        }
+
+//        if (this.maxPanX - this.minPanX > 234) {
+//            this.originX = MathHelper.clamp(this.originX + offsetX, (double) (-(this.maxPanX - 234)), 0.0);
+//        }
+//        if (this.maxPanY - this.minPanY > 113) {
+//            this.originY = MathHelper.clamp(this.originY + offsetY, (double) (-(this.maxPanY - 113)), 0.0);
+//        }
     }
 
-    private void addWidget(QuestWidget widget, Advancement advancement) {
+    @Override
+    public void addAdvancement(PlacedAdvancement advancement) {
+        Optional<AdvancementDisplay> optional = advancement.getAdvancement().display();
+        if (!optional.isEmpty()) {
+            QuestWidget advancementWidget = new QuestWidget(this, this.client, advancement, optional.get());
+            this.addWidget(advancementWidget, advancement.getAdvancementEntry());
+        }
+    }
+
+    private void addWidget(QuestWidget widget, AdvancementEntry advancement) {
         this.widgets.put(advancement, widget);
         int i = widget.getX();
         int j = i + 28;
@@ -228,19 +270,19 @@ public class QuestTab extends AdvancementTab {
         this.minPanY = Math.min(this.minPanY, k);
         this.maxPanY = Math.max(this.maxPanY, l);
 
-        for (QuestWidget advancementWidget : this.widgets.values()) {
+        for (AdvancementWidget advancementWidget : this.widgets.values()) {
             advancementWidget.addToTree();
         }
-        this.oldMaxPanX = this.maxPanX;
-        this.oldMaxPanY = this.maxPanY;
     }
 
+    @Override
     @Nullable
-    public QuestWidget getWidget(Advancement advancement) {
+    public QuestWidget getWidget(AdvancementEntry advancement) {
         return this.widgets.get(advancement);
     }
 
-    public QuestScreen getScreen() {
+    @Override
+    public AdvancementsScreen getScreen() {
         return this.screen;
     }
 
@@ -262,20 +304,37 @@ public class QuestTab extends AdvancementTab {
         return this.tabScale;
     }
 
-    public void setMaxPan(int maxPanX, int maxPanY) {
-        this.maxPanX = maxPanX;
-        this.maxPanY = maxPanY;
+    public void setOrigin(double x, double y) {
+        this.originX = x;
+        this.originY = y;
     }
 
-    public int getMaxPan() {
-        return this.maxPanX;
+    public double getOriginX() {
+        return this.originX;
     }
 
-    public int getOldMaxPanX() {
-        return this.oldMaxPanX;
+    public double getOriginY() {
+        return this.originY;
     }
 
-    public int getOldMaxPanY() {
-        return this.oldMaxPanY;
+    public QuestWidget getHoveredWidget() {
+        return hoveredWidget;
     }
+
+    //    public void setMaxPan(int maxPanX, int maxPanY) {
+//        this.maxPanX = maxPanX;
+//        this.maxPanY = maxPanY;
+//    }
+//
+//    public int getMaxPan() {
+//        return this.maxPanX;
+//    }
+//
+//    public int getOldMaxPanX() {
+//        return this.oldMaxPanX;
+//    }
+//
+//    public int getOldMaxPanY() {
+//        return this.oldMaxPanY;
+//    }
 }

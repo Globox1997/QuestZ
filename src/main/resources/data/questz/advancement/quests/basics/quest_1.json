@@ -2,31 +2,32 @@
     "parent": "questz:quests/basics/root",
     "display": {
         "icon": {
-            "item": "minecraft:wooden_axe"
+            "id": "minecraft:wooden_axe"
         },
         "title": {
             "text": "The Basics"
         },
         "description": {
-            "text": "Gather wood and craft a set of basic tools.",
-            "requirement": {
-                "info": "\nRequires crafting:",
-                "wooden_axe": [
-                    "\n§e- %I% Wooden Axe"
-                ],
-                "wooden_hoe": [
-                    "\n§e- %I% Wooden Hoe"
-                ],
-                "wooden_sword": [
-                    "\n§e- %I% Wooden Sword"
-                ],
-                "wooden_pickaxe": [
-                    "\n§e- %I% Wooden Pickaxe"
-                ],
-                "wooden_shovel": [
-                    "\n§e- %I% Wooden Shovel"
-                ]
-            }
+            "text": "Gather wood and craft a set of basic tools."
+
+        },
+        "requirement": {
+            "info": "\nRequires crafting:",
+            "wooden_axe": [
+                "\n§e- %I% Wooden Axe"
+            ],
+            "wooden_hoe": [
+                "\n§e- %I% Wooden Hoe"
+            ],
+            "wooden_sword": [
+                "\n§e- %I% Wooden Sword"
+            ],
+            "wooden_pickaxe": [
+                "\n§e- %I% Wooden Pickaxe"
+            ],
+            "wooden_shovel": [
+                "\n§e- %I% Wooden Shovel"
+            ]
         },
         "frame": "task",
         "show_toast": false,

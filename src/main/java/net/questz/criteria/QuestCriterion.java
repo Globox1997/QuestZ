@@ -1,55 +1,43 @@
 package net.questz.criteria;
 
-import com.google.gson.JsonObject;
-
-import org.jetbrains.annotations.Nullable;
-
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.advancement.criterion.AbstractCriterion;
-import net.minecraft.advancement.criterion.AbstractCriterionConditions;
 import net.minecraft.block.Block;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.Item;
-import net.minecraft.predicate.entity.AdvancementEntityPredicateDeserializer;
-import net.minecraft.predicate.entity.AdvancementEntityPredicateSerializer;
+import net.minecraft.predicate.entity.EntityPredicate;
 import net.minecraft.predicate.entity.LootContextPredicate;
+import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.stat.Stats;
 import net.minecraft.util.Identifier;
-import net.questz.criteria.predicate.CountPredicate;
-import net.questz.criteria.predicate.ObjectPredicate;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Optional;
 
 public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions> {
-    private final Identifier id;
-
-    public QuestCriterion(Identifier id) {
-        this.id = id;
-    }
 
     @Override
-    public Identifier getId() {
-        return this.id;
-    }
-
-    @Override
-    public Conditions conditionsFromJson(JsonObject jsonObject, LootContextPredicate lootContextPredicate, AdvancementEntityPredicateDeserializer advancementEntityPredicateDeserializer) {
-        ObjectPredicate objectPredicate = ObjectPredicate.fromJson(jsonObject.get("object"));
-        CountPredicate countPredicate = CountPredicate.fromJson(jsonObject.get("count"));
-        return new Conditions(this.id, lootContextPredicate, objectPredicate, countPredicate);
+    public Codec<Conditions> getConditionsCodec() {
+        return Conditions.CODEC;
     }
 
     public void trigger(ServerPlayerEntity player, @Nullable Item item, @Nullable Block block, @Nullable LivingEntity livingEntity, int code) {
         this.trigger(player, conditions -> conditions.matches(player, item, block, livingEntity, code));
     }
 
-    public static class Conditions extends AbstractCriterionConditions {
-        private final ObjectPredicate objectPredicate;
-        private final CountPredicate countPredicate;
+    public record Conditions(Optional<LootContextPredicate> player, ObjectPredicate objectPredicate, CountPredicate countPredicate) implements AbstractCriterion.Conditions {
 
-        public Conditions(Identifier id, LootContextPredicate entity, ObjectPredicate objectPredicate, CountPredicate countPredicate) {
-            super(id, entity);
-            this.objectPredicate = objectPredicate;
-            this.countPredicate = countPredicate;
-        }
+        public static final Codec<Conditions> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        EntityPredicate.LOOT_CONTEXT_PREDICATE_CODEC.optionalFieldOf("player").forGetter(Conditions::player),
+                        Identifier.CODEC.fieldOf("object").forGetter(c -> c.objectPredicate().objectId()),
+                        Codec.INT.fieldOf("count").forGetter(c -> c.countPredicate().count())
+                ).apply(instance, (player, objectId, count) ->
+                        new Conditions(player, new ObjectPredicate(objectId), new CountPredicate(count))
+                )
+        );
 
         public boolean matches(ServerPlayerEntity player, @Nullable Item item, @Nullable Block block, @Nullable LivingEntity livingEntity, int code) {
             if (item != null) {
@@ -82,13 +70,34 @@ public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions>
             }
             return false;
         }
+    }
 
-        @Override
-        public JsonObject toJson(AdvancementEntityPredicateSerializer predicateSerializer) {
-            JsonObject jsonObject = super.toJson(predicateSerializer);
-            jsonObject.add("object", this.objectPredicate.toJson());
-            jsonObject.add("count", this.countPredicate.toJson());
-            return jsonObject;
+    public record ObjectPredicate(Identifier objectId) {
+        public static final Codec<ObjectPredicate> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        Identifier.CODEC.fieldOf("object").forGetter(ObjectPredicate::objectId)
+                ).apply(instance, ObjectPredicate::new)
+        );
+
+        public boolean test(Object object, int code) {
+            return switch (code) {
+                case 0 -> Registries.ITEM.getId((Item) object).equals(this.objectId);
+                case 1 -> Registries.BLOCK.getId((Block) object).equals(this.objectId);
+                case 2 -> Registries.ENTITY_TYPE.getId(((LivingEntity) object).getType()).equals(this.objectId);
+                default -> false;
+            };
+        }
+    }
+
+    public record CountPredicate(int count) {
+        public static final Codec<CountPredicate> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        Codec.INT.fieldOf("count").forGetter(CountPredicate::count)
+                ).apply(instance, CountPredicate::new)
+        );
+
+        public boolean test(int inputCount) {
+            return this.count == inputCount;
         }
     }
 }

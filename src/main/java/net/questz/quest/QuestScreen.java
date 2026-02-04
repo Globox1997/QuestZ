@@ -2,51 +2,88 @@ package net.questz.quest;
 
 import com.google.common.collect.Maps;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.util.Map;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.advancement.Advancement;
+import net.minecraft.advancement.AdvancementEntry;
 import net.minecraft.advancement.AdvancementProgress;
+import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
 import net.minecraft.client.network.ClientAdvancementManager;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.network.packet.c2s.play.AdvancementTabC2SPacket;
+import net.minecraft.screen.ScreenTexts;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.questz.init.ConfigInit;
+import net.minecraft.util.math.MathHelper;
+import net.questz.QuestzMain;
 import net.questz.init.KeyInit;
-
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 @Environment(EnvType.CLIENT)
-public class QuestScreen extends AdvancementsScreen {
-
-    private static final Identifier WINDOW_TEXTURE = new Identifier("questz", "textures/gui/window.png");
+public class QuestScreen extends AdvancementsScreen implements ClientAdvancementManager.Listener {
+    private static final Identifier WINDOW_TEXTURE = QuestzMain.identifierOf("textures/gui/window.png");
+    private static final Identifier CREATION_MODE_TEXTURE = QuestzMain.identifierOf("textures/gui/creation_mode.png");
     private static final Text QUESTS_TEXT = Text.translatable("gui.questz");
-
+    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this);
+    @Nullable
+    private final Screen parent;
     private final ClientAdvancementManager advancementHandler;
-    private final Map<Advancement, QuestTab> tabs = Maps.newLinkedHashMap();
+    private final Map<AdvancementEntry, QuestTab> tabs = Maps.newLinkedHashMap();
     @Nullable
     private QuestTab selectedTab;
     private boolean movingTab;
 
-    public QuestScreen(ClientAdvancementManager advancementHandler) {
+    private boolean creationMode = false;
+
+    public QuestScreen(ClientAdvancementManager advancementHandler,boolean creationMode) {
+        this(advancementHandler, null);
+        this.creationMode = creationMode;
+    }
+
+    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent) {
         super(advancementHandler);
         this.advancementHandler = advancementHandler;
+        this.parent = parent;
     }
 
     @Override
     protected void init() {
+        this.layout.addHeader(QUESTS_TEXT, this.textRenderer);
         this.tabs.clear();
         this.selectedTab = null;
         this.advancementHandler.setListener(this);
         if (this.selectedTab == null && !this.tabs.isEmpty()) {
-            this.advancementHandler.selectTab(this.tabs.values().iterator().next().getRoot(), true);
+            QuestTab advancementTab = this.tabs.values().iterator().next();
+            this.advancementHandler.selectTab(advancementTab.getRoot().getAdvancementEntry(), true);
         } else {
-            this.advancementHandler.selectTab(this.selectedTab == null ? null : this.selectedTab.getRoot(), true);
+            this.advancementHandler.selectTab(this.selectedTab == null ? null : this.selectedTab.getRoot().getAdvancementEntry(), true);
         }
+
+        this.layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, buttonWidget -> this.close()).width(200).build());
+        this.layout.forEachChild(element -> {
+            ClickableWidget clickableWidget = this.addDrawableChild(element);
+        });
+        this.initTabNavigation();
+    }
+
+    @Override
+    protected void initTabNavigation() {
+        this.layout.refreshPositions();
+    }
+
+    @Override
+    public void close() {
+//        this.client.setScreen(this.parent);
+        this.client.setScreen(null);
     }
 
     @Override
@@ -63,15 +100,30 @@ public class QuestScreen extends AdvancementsScreen {
         if (button == 0) {
             int i = (this.width - 256) / 2;
             int j = (this.height - 206) / 2;
+
             for (QuestTab advancementTab : this.tabs.values()) {
-                if (!advancementTab.isClickOnTab(i, j, mouseX, mouseY)) {
-                    continue;
+                if (advancementTab.isClickOnTab(i, j, mouseX, mouseY)) {
+                    this.advancementHandler.selectTab(advancementTab.getRoot().getAdvancementEntry(), true);
+                    this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
                 }
-                this.advancementHandler.selectTab(advancementTab.getRoot(), true);
-                break;
+            }
+            if (isPointWithinBounds(i + 237, j + 2, 15, 12, mouseX, mouseY) && this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
+                this.creationMode = !this.creationMode;
+                this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                return true;
             }
         }
+        if (button == 1 && this.creationMode) {
+            this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null));
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    public static boolean isPointWithinBounds(int x, int y, int width, int height, double pointX, double pointY) {
+        return pointX >= (double) (x - 1) && pointX < (double) (x + width + 1) && pointY >= (double) (y - 1) && pointY < (double) (y + height + 1);
     }
 
     @Override
@@ -86,12 +138,21 @@ public class QuestScreen extends AdvancementsScreen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        this.renderBackground(context, mouseX, mouseY, delta);
+
+//        for (Drawable drawable : this.drawables) {
+//            drawable.render(context, mouseX, mouseY, delta);
+//        }
+
         int i = (this.width - 256) / 2;
         int j = (this.height - 206) / 2;
-        this.renderBackground(context);
         this.drawAdvancementTree(context, mouseX, mouseY, i, j);
         this.drawWindow(context, i, j);
         this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
+
+        if (this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
+            context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.creationMode ? 0 : 16, 0, 16, 16, 32, 16);
+        }
     }
 
     @Override
@@ -99,48 +160,60 @@ public class QuestScreen extends AdvancementsScreen {
         if (button != 0) {
             this.movingTab = false;
             return false;
+        } else {
+            if (!this.movingTab) {
+                this.movingTab = true;
+            } else if (this.selectedTab != null) {
+                float scale = this.selectedTab.getTabScale();
+
+                double correctedDeltaX = deltaX / scale;
+                double correctedDeltaY = deltaY / scale;
+                this.selectedTab.move(correctedDeltaX, correctedDeltaY);
+            }
+
+            return true;
         }
-        if (!this.movingTab) {
-            this.movingTab = true;
-        } else if (this.selectedTab != null) {
-            this.selectedTab.move(deltaX, deltaY);
-        }
-        return true;
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        int i = (this.width - 256) / 2;
-        int j = (this.height - 206) / 2;
-        float scale = this.selectedTab.getTabScale();
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (this.selectedTab == null) return false;
 
-        if (amount < 0) {
-            scale = Math.min(1.3f, scale + 0.05f);
-            if (scale < 1.3f) {
-                this.selectedTab.setMaxPan(Math.round(this.selectedTab.getOldMaxPanX() * scale), Math.round(this.selectedTab.getOldMaxPanY() * scale));
-                this.selectedTab.move((i - mouseX) * 0.05f, (j - mouseY) * 0.05f);
-            }
-        } else {
-            scale = Math.max(0.3f, scale - 0.05f);
-            if (scale > 0.3f) {
-                this.selectedTab.setMaxPan(Math.round(this.selectedTab.getOldMaxPanX() * scale), Math.round(this.selectedTab.getOldMaxPanY() * scale));
-                this.selectedTab.move((i - mouseX) * -0.05f, (j - mouseY) * -0.05f);
-            }
+        float oldScale = this.selectedTab.getTabScale();
+        float newScale = MathHelper.clamp(oldScale + (verticalAmount > 0 ? 0.1f : -0.1f), 0.3f, 1.3f);
+
+        if (oldScale != newScale) {
+            double tabMouseX = mouseX - ((this.width - 256) / 2 + 9);
+            double tabMouseY = mouseY - ((this.height - 206) / 2 + 18);
+
+            double worldMouseX = tabMouseX / oldScale - this.selectedTab.getOriginX();
+            double worldMouseY = tabMouseY / oldScale - this.selectedTab.getOriginY();
+
+            this.selectedTab.setTabScale(newScale, false);
+
+            double newOriginX = (tabMouseX / newScale) - worldMouseX;
+            double newOriginY = (tabMouseY / newScale) - worldMouseY;
+
+            this.selectedTab.setOrigin(newOriginX, newOriginY);
         }
-        this.selectedTab.setTabScale(scale, false);
 
-        return super.mouseScrolled(mouseX, mouseY, amount);
+        return true;
     }
 
     private void drawAdvancementTree(DrawContext context, int mouseX, int mouseY, int x, int y) {
         QuestTab advancementTab = this.selectedTab;
+//        System.out.println("TT");
         if (advancementTab == null) {
-            context.fill(x + 9, y + 18, x + 9 + 238, y + 18 + 179, -16777216);
-            return;
+//            context.fill(x + 9, y + 18, x + 9 + 234, y + 18 + 113, Colors.BLACK);
+//            int i = x + 9 + 117;
+//            context.drawCenteredTextWithShadow(this.textRenderer, EMPTY_TEXT, i, y + 18 + 56 - 9 / 2, Colors.WHITE);
+//            context.drawCenteredTextWithShadow(this.textRenderer, SAD_LABEL_TEXT, i, y + 18 + 113 - 9, Colors.WHITE);
+        } else {
+            advancementTab.render(context, x + 9, y + 18);
         }
-        advancementTab.render(context, x + 9, y + 18);
     }
 
+    @Override
     public void drawWindow(DrawContext context, int x, int y) {
         RenderSystem.enableBlend();
         context.drawTexture(WINDOW_TEXTURE, x, y, 0, 0, 256, 206);
@@ -148,69 +221,68 @@ public class QuestScreen extends AdvancementsScreen {
             for (QuestTab advancementTab : this.tabs.values()) {
                 advancementTab.drawBackground(context, x, y, advancementTab == this.selectedTab);
             }
+
             for (QuestTab advancementTab : this.tabs.values()) {
                 advancementTab.drawIcon(context, x, y);
             }
         }
+
         context.drawText(this.textRenderer, QUESTS_TEXT, x + 8, y + 6, 0x404040, false);
     }
 
     private void drawWidgetTooltip(DrawContext context, int mouseX, int mouseY, int x, int y) {
         if (this.selectedTab != null) {
             context.getMatrices().push();
-            context.getMatrices().translate(x + 9, y + 18, 400.0f);
+            context.getMatrices().translate((float) (x + 9), (float) (y + 18), 400.0F);
             RenderSystem.enableDepthTest();
             this.selectedTab.drawWidgetTooltip(context, mouseX - x - 9, mouseY - y - 18, x, y);
             RenderSystem.disableDepthTest();
             context.getMatrices().pop();
         }
+
         if (this.tabs.size() > 1) {
             for (QuestTab advancementTab : this.tabs.values()) {
-                if (!advancementTab.isClickOnTab(x, y, mouseX, mouseY))
-                    continue;
-                context.drawTooltip(this.textRenderer, advancementTab.getTitle(), mouseX, mouseY);
+                if (advancementTab.isClickOnTab(x, y, mouseX, mouseY)) {
+                    context.drawTooltip(this.textRenderer, advancementTab.getTitle(), mouseX, mouseY);
+                }
             }
         }
     }
 
     @Override
-    public void onRootAdded(Advancement root) {
+    public void onRootAdded(PlacedAdvancement root) {
         QuestTab advancementTab = QuestTab.create(this.client, this, this.tabs.size(), root);
-        if (advancementTab == null) {
-            return;
-        }
-        if (ConfigInit.CONFIG.questAdvancementNamespaceIds.contains(root.getId().getNamespace())) {
-            this.tabs.put(root, advancementTab);
+        if (advancementTab != null) {
+            this.tabs.put(root.getAdvancementEntry(), advancementTab);
         }
     }
 
     @Override
-    public void onRootRemoved(Advancement root) {
+    public void onRootRemoved(PlacedAdvancement root) {
     }
 
     @Override
-    public void onDependentAdded(Advancement dependent) {
+    public void onDependentAdded(PlacedAdvancement dependent) {
         QuestTab advancementTab = this.getTab(dependent);
-
         if (advancementTab != null) {
             advancementTab.addAdvancement(dependent);
         }
     }
 
     @Override
-    public void onDependentRemoved(Advancement dependent) {
+    public void onDependentRemoved(PlacedAdvancement dependent) {
     }
 
     @Override
-    public void setProgress(Advancement advancement, AdvancementProgress progress) {
-        AdvancementWidget advancementWidget = this.getAdvancementWidget(advancement);
+    public void setProgress(PlacedAdvancement advancement, AdvancementProgress progress) {
+        QuestWidget advancementWidget = this.getAdvancementWidget(advancement);
         if (advancementWidget != null) {
             advancementWidget.setProgress(progress);
         }
     }
 
     @Override
-    public void selectTab(@Nullable Advancement advancement) {
+    public void selectTab(@Nullable AdvancementEntry advancement) {
         this.selectedTab = this.tabs.get(advancement);
     }
 
@@ -221,22 +293,15 @@ public class QuestScreen extends AdvancementsScreen {
     }
 
     @Nullable
-    public AdvancementWidget getAdvancementWidget(Advancement advancement) {
+    public QuestWidget getAdvancementWidget(PlacedAdvancement advancement) {
         QuestTab advancementTab = this.getTab(advancement);
-        return advancementTab == null ? null : advancementTab.getWidget(advancement);
+        return advancementTab == null ? null : advancementTab.getWidget(advancement.getAdvancementEntry());
     }
 
     @Nullable
-    private QuestTab getTab(Advancement advancement) {
-        while (advancement.getParent() != null) {
-            advancement = advancement.getParent();
-        }
-        return this.tabs.get(advancement);
+    private QuestTab getTab(PlacedAdvancement advancement) {
+        PlacedAdvancement placedAdvancement = advancement.getRoot();
+        return this.tabs.get(placedAdvancement.getAdvancementEntry());
     }
-
-    @Nullable
-    public QuestTab getSelectedTab() {
-        return this.selectedTab;
-    }
-
 }
+
