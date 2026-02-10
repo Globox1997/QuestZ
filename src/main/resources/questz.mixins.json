@@ -6,10 +6,13 @@
   "mixins": [
     "AdvancementDisplayMixin",
     "AdvancementDisplaysMixin",
+    "AdvancementMixin",
+    "AdvancementRewardsMixin",
     "ServerPlayerEntityMixin"
   ],
   "client": [
     "client.AdvancementsScreenMixin",
+    "client.TextFieldWidgetAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

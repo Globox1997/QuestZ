@@ -1,5 +1,15 @@
 {
     "parent": "questz:quests/basics/root",
+    "rewards": {
+        "items": {
+            "minecraft:stick": 5,
+            "minecraft:sand": 5
+        },
+        "commands": [
+            "/give @p gold_block"
+        ],
+        "text": ""
+    },
     "display": {
         "icon": {
             "id": "minecraft:wooden_axe"

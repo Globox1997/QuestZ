@@ -6,6 +6,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.advancement.AdvancementDisplay;
 import net.minecraft.advancement.AdvancementProgress;
+import net.minecraft.advancement.AdvancementRewards;
 import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextHandler;
@@ -22,6 +23,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
+import net.questz.access.RewardAccess;
 import net.questz.init.ConfigInit;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 @Environment(EnvType.CLIENT)
 public class QuestWidget extends AdvancementWidget {
@@ -42,6 +45,7 @@ public class QuestWidget extends AdvancementWidget {
     private int width;
     private List<OrderedText> description;
     private final List<Object> itemRenderList = new ArrayList<>();
+    private final List<Object> itemRewardRenderList = new ArrayList<>();
     private final MinecraftClient client;
     @Nullable
     private QuestWidget parent;
@@ -58,6 +62,7 @@ public class QuestWidget extends AdvancementWidget {
         this.display = display;
         this.client = client;
         this.title = Language.getInstance().reorder(client.textRenderer.trimToWidth(display.getTitle(), 163));
+
         this.x = MathHelper.floor(display.getX() * 28.0F);
         this.y = MathHelper.floor(display.getY() * 27.0F);
         int i = this.getProgressWidth();
@@ -203,8 +208,8 @@ public class QuestWidget extends AdvancementWidget {
                         String newText = siblings.get(i).copyContentOnly().getString().replace("QK:" + subString + "*", "");
                         if (subString != null && newText.contains("%I%")) {
 
-                            if(!subString.contains(":")){
-                                subString = "minecraft:"+subString;
+                            if (!subString.contains(":")) {
+                                subString = "minecraft:" + subString;
                             }
                             Item item = Registries.ITEM.get(Identifier.of(subString));
                             if (item != Items.AIR) {
@@ -311,13 +316,15 @@ public class QuestWidget extends AdvancementWidget {
                 int posX = m + 5;
                 int posY = l + 26 - n + 7 + o * this.client.textRenderer.fontHeight;
                 drawItem(context, o, posX, posY);
-                context.drawText(this.client.textRenderer,  this.description.get(o), m + 5, l + 26 - n + 7 + o * 9, -5592406, false);
+                drawRewardItem(context, o, posX, posY);
+                context.drawText(this.client.textRenderer, this.description.get(o), m + 5, l + 26 - n + 7 + o * 9, -5592406, false);
             }
         } else {
             for (int o = 0; o < this.description.size(); o++) {
                 int posX = m + 5;
                 int posY = originY + this.y + 9 + 17 + o * this.client.textRenderer.fontHeight;
                 drawItem(context, o, posX, posY);
+                drawRewardItem(context, o, posX, posY);
                 context.drawText(this.client.textRenderer, this.description.get(o), m + 5, originY + this.y + 9 + 17 + o * 9, -5592406, false);
             }
         }
@@ -382,32 +389,89 @@ public class QuestWidget extends AdvancementWidget {
         int i = advancement.getAdvancement().requirements().getLength();
         int j = String.valueOf(i).length();
         int k = i > 1 ? client.textRenderer.getWidth("  ") + client.textRenderer.getWidth("0") * j * 2 + client.textRenderer.getWidth("/") : 0;
-
         int l = 29 + client.textRenderer.getWidth(this.title) + k;
 
-        if (l > ConfigInit.CONFIG.maxTextWidth) {
-        } else if (client.textRenderer.getWidth(description) > ConfigInit.CONFIG.maxTextWidth) {
-            l = ConfigInit.CONFIG.maxTextWidth;
-        } else if (client.textRenderer.getWidth(description) > l) {
-            l = client.textRenderer.getWidth(description);
+        if (client.textRenderer.getWidth(description) > l) {
+            l = Math.min(ConfigInit.CONFIG.maxTextWidth, client.textRenderer.getWidth(description));
         }
-        if (l < ConfigInit.CONFIG.minTextWidth) {
-            l = ConfigInit.CONFIG.minTextWidth;
+        l = MathHelper.clamp(l, ConfigInit.CONFIG.minTextWidth, ConfigInit.CONFIG.maxTextWidth);
+
+        if (i > 1) {
+            Text progressText = Text.translatable("advancements.progress", i, i);
+            l += this.client.textRenderer.getWidth(progressText);
         }
 
-        this.description = Language.getInstance().reorder(this.wrapDescription(Texts.setStyleIfAbsent(description.copy(), Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l));
+        this.description = new ArrayList<>(Language.getInstance().reorder(
+                this.wrapDescription(Texts.setStyleIfAbsent(description.copy(),
+                        Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)
+        ));
 
         if (!this.itemRenderList.isEmpty()) {
-            if ((description.getSiblings().size() + 1) < this.description.size()) {
-                int difference = this.description.size() - (description.getSiblings().size() + 1);
+            int originalSiblingCount = description.getSiblings().size() + 1;
+            if (originalSiblingCount < this.description.size()) {
+                int difference = this.description.size() - originalSiblingCount;
                 for (int o = 0; o < this.itemRenderList.size() / 3; o++) {
-                    this.itemRenderList.set(o * 3, (int) this.itemRenderList.get(o * 3) + difference);
+                    int oldIndex = (int) this.itemRenderList.get(o * 3);
+                    this.itemRenderList.set(o * 3, oldIndex + difference);
                 }
             }
         }
+
+        appendCustomRewards();
+
         for (OrderedText orderedText : this.description) {
             l = Math.max(l, client.textRenderer.getWidth(orderedText));
         }
         this.width = l + 8;
+    }
+
+    private void appendCustomRewards() {
+        AdvancementRewards rewards = this.advancement.getAdvancement().rewards();
+        RewardAccess rewardAccess = (RewardAccess) (Object) rewards;
+
+        String rewardText = rewardAccess.questz$getText();
+        boolean emptyLine = false;
+
+        if (rewardText != null && !rewardText.isEmpty()) {
+            this.description.add(OrderedText.EMPTY);
+            emptyLine = true;
+            Text formattedText = Text.literal(rewardText).formatted(Formatting.GOLD);
+            this.description.addAll(Language.getInstance().reorder(this.wrapDescription(formattedText, 160)));
+        }
+
+        Map<Identifier, Integer> items = rewardAccess.questz$getItems();
+        if (items != null && !items.isEmpty()) {
+            if (!emptyLine) {
+                this.description.add(OrderedText.EMPTY);
+                this.description.add(Language.getInstance().reorder(Text.translatable("gui.questz.reward").formatted(Formatting.GOLD)));
+            }
+
+            items.forEach((id, count) -> {
+                Item item = Registries.ITEM.get(id);
+                if (item != Items.AIR) {
+                    String space = "   x" + count + " " + item.getName().getString();
+                    this.description.add(Language.getInstance().reorder(Text.literal(space).formatted(Formatting.GRAY)));
+
+                    this.itemRewardRenderList.add(this.description.size() - 1);
+                    this.itemRewardRenderList.add(0);
+                    this.itemRewardRenderList.add(new ItemStack(item));
+                }
+            });
+        }
+    }
+
+    private void drawRewardItem(DrawContext context, int itemIndex, int posX, int posY) {
+        if (!this.itemRewardRenderList.isEmpty()) {
+            for (int h = 0; h < this.itemRewardRenderList.size() / 3; h++) {
+                if (itemIndex == (int) this.itemRewardRenderList.get(h * 3)) {
+                    context.getMatrices().push();
+                    context.getMatrices().translate(posX + (int) this.itemRewardRenderList.get(h * 3 + 1), posY, 0.0D);
+                    context.getMatrices().scale(0.5f, 0.5f, 1.0f);
+                    context.drawItem((ItemStack) this.itemRewardRenderList.get(h * 3 + 2), 0, 0);
+                    context.getMatrices().pop();
+                    break;
+                }
+            }
+        }
     }
 }

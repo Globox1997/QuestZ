@@ -15,6 +15,7 @@
     "gui.questz.chat": "Chat: %s",
     "gui.questz.hidden": "Hidden: %s",
     "gui.questz.example": "Example...",
+    "gui.questz.reward": "Reward:",
 
     "text.autoconfig.questz.title": "QuestZ Config",
     "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",

@@ -36,8 +36,7 @@ public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions>
                         Codec.INT.fieldOf("count").forGetter(c -> c.countPredicate().count())
                 ).apply(instance, (player, objectId, count) ->
                         new Conditions(player, new ObjectPredicate(objectId), new CountPredicate(count))
-                )
-        );
+                ));
 
         public boolean matches(ServerPlayerEntity player, @Nullable Item item, @Nullable Block block, @Nullable LivingEntity livingEntity, int code) {
             if (item != null) {
