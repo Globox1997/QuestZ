@@ -24,6 +24,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
 import net.questz.access.RewardAccess;
+import net.questz.criteria.QuestCriterion;
 import net.questz.init.ConfigInit;
 import org.jetbrains.annotations.Nullable;
 
@@ -274,7 +275,6 @@ public class QuestWidget extends AdvancementWidget {
         context.drawItemWithoutEntity(this.display.getIcon(), originX + this.x + 8, originY + this.y + 5);
     }
 
-
     private void drawItems(DrawContext context, int lineIndex, int posX, int posY) {
         for (ItemRenderInfo info : this.itemRenderList) {
             if (info.lineIndex == lineIndex) {
@@ -283,7 +283,6 @@ public class QuestWidget extends AdvancementWidget {
                 context.getMatrices().scale(0.5f, 0.5f, 1.0f);
                 context.drawItem(info.itemStack, 0, 0);
                 context.drawItemInSlot(this.client.textRenderer, info.itemStack, 0, 0);
-
                 context.getMatrices().pop();
             }
         }
@@ -295,7 +294,6 @@ public class QuestWidget extends AdvancementWidget {
                 context.getMatrices().scale(0.5f, 0.5f, 1.0f);
                 context.drawItem(info.itemStack, 0, 0);
                 context.drawItemInSlot(this.client.textRenderer, info.itemStack, 0, 0);
-
                 context.getMatrices().pop();
             }
         }
@@ -342,6 +340,8 @@ public class QuestWidget extends AdvancementWidget {
         this.itemRenderList.clear();
 
         List<Text> descriptionParts = new ArrayList<>();
+        List<ItemRenderInfo> pendingItems = new ArrayList<>();
+
         descriptionParts.add(display.getDescription().copy());
 
         Map<String, AdvancementCriterion<?>> criteria = this.advancement.getAdvancement().criteria();
@@ -378,14 +378,28 @@ public class QuestWidget extends AdvancementWidget {
                                     count = predicate.count().min().get();
                                 }
 
-                                descriptionParts.add(Text.literal("    " + item.getName().getString()).formatted(statusColor));
+                                String itemName = item.getName().getString();
+                                descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
 
                                 ItemStack stack = new ItemStack(item, count);
-
-                                int lineIndex = descriptionParts.size() - 1;
-                                itemRenderList.add(new ItemRenderInfo(lineIndex, 2, stack));
+                                pendingItems.add(new ItemRenderInfo(-1, 2, stack, itemName));
                             }
                         }
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
+                } else if (criterion.trigger() instanceof QuestCriterion) {
+                    QuestCriterion.Conditions conditions = (QuestCriterion.Conditions) criterion.conditions();
+
+                    if (Registries.ITEM.get(conditions.objectPredicate().objectId()) != Items.AIR) {
+                        Item item = Registries.ITEM.get(conditions.objectPredicate().objectId());
+                        int count = conditions.countPredicate().count();
+
+                        String itemName = item.getName().getString();
+                        descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+
+                        ItemStack stack = new ItemStack(item, count);
+                        pendingItems.add(new ItemRenderInfo(-1, 2, stack, itemName));
                     } else {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
@@ -403,10 +417,10 @@ public class QuestWidget extends AdvancementWidget {
             finalDescription.append(descriptionParts.get(i));
         }
 
-        setWidthAndDescription(finalDescription);
+        setWidthAndDescription(finalDescription, pendingItems);
     }
 
-    private void setWidthAndDescription(Text description) {
+    private void setWidthAndDescription(Text description, List<ItemRenderInfo> pendingItems) {
         int i = advancement.getAdvancement().requirements().getLength();
         int j = String.valueOf(i).length();
         int k = i > 1 ? client.textRenderer.getWidth("  ") +
@@ -423,16 +437,32 @@ public class QuestWidget extends AdvancementWidget {
             l += this.client.textRenderer.getWidth(progressText);
         }
 
-        String originalText = description.getString();
-        int originalLineCount = originalText.split("\n", -1).length;
-
         this.description = new ArrayList<>(Language.getInstance().reorder(
                 this.wrapDescription(Texts.setStyleIfAbsent(description.copy(),
                         Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)
         ));
 
-        if (this.description.size() > originalLineCount) {
-            adjustItemRenderIndicesAfterWrapping(originalText);
+        for (ItemRenderInfo pendingItem : pendingItems) {
+            String searchText = pendingItem.itemName;
+
+            for (int lineIndex = 0; lineIndex < this.description.size(); lineIndex++) {
+                OrderedText line = this.description.get(lineIndex);
+                StringBuilder lineText = new StringBuilder();
+                line.accept((index, style, codePoint) -> {
+                    lineText.appendCodePoint(codePoint);
+                    return true;
+                });
+
+                if (lineText.toString().contains(searchText) && lineText.toString().split(" ").length - 4 == searchText.split(" ").length) {
+                    this.itemRenderList.add(new ItemRenderInfo(
+                            lineIndex,
+                            pendingItem.xOffset,
+                            pendingItem.itemStack,
+                            pendingItem.itemName
+                    ));
+                    break;
+                }
+            }
         }
 
         appendCustomRewards();
@@ -441,44 +471,6 @@ public class QuestWidget extends AdvancementWidget {
             l = Math.max(l, client.textRenderer.getWidth(orderedText));
         }
         this.width = l + 8;
-    }
-
-    private void adjustItemRenderIndicesAfterWrapping(String originalText) {
-        String[] originalLines = originalText.split("\n", -1);
-
-        int wrappedLineIndex = 0;
-
-        for (int originalLineIndex = 0; originalLineIndex < originalLines.length; originalLineIndex++) {
-            String originalLine = originalLines[originalLineIndex];
-
-            int linesForThisOriginal = 0;
-            while (wrappedLineIndex < this.description.size()) {
-                if (linesForThisOriginal > 0 && wrappedLineIndex < this.description.size() - 1) {
-                    break;
-                }
-
-                linesForThisOriginal++;
-                wrappedLineIndex++;
-
-                if (!originalLine.isEmpty()) {
-                    break;
-                }
-            }
-
-            final int finalOriginalLineIndex = originalLineIndex;
-            final int finalWrappedStartIndex = wrappedLineIndex - linesForThisOriginal;
-
-            for (ItemRenderInfo info : this.itemRenderList) {
-                if (info.lineIndex == finalOriginalLineIndex) {
-                    int index = this.itemRenderList.indexOf(info);
-                    this.itemRenderList.set(index, new ItemRenderInfo(
-                            finalWrappedStartIndex,
-                            info.xOffset,
-                            info.itemStack
-                    ));
-                }
-            }
-        }
     }
 
     private void appendCustomRewards() {
@@ -520,6 +512,21 @@ public class QuestWidget extends AdvancementWidget {
         }
     }
 
-    private record ItemRenderInfo(int lineIndex, int xOffset, ItemStack itemStack) {
+    private static class ItemRenderInfo {
+        final int lineIndex;
+        final int xOffset;
+        final ItemStack itemStack;
+        final String itemName;
+
+        ItemRenderInfo(int lineIndex, int xOffset, ItemStack itemStack, String itemName) {
+            this.lineIndex = lineIndex;
+            this.xOffset = xOffset;
+            this.itemStack = itemStack;
+            this.itemName = itemName;
+        }
+
+        ItemRenderInfo(int lineIndex, int xOffset, ItemStack itemStack) {
+            this(lineIndex, xOffset, itemStack, "");
+        }
     }
 }
