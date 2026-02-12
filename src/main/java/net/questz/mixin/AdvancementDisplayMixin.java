@@ -23,46 +23,46 @@ import java.util.function.Function;
 @Mixin(AdvancementDisplay.class)
 public class AdvancementDisplayMixin {
 
-    @Redirect(method = "<clinit>", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/codecs/RecordCodecBuilder;create(Ljava/util/function/Function;)Lcom/mojang/serialization/Codec;"))
-    private static Codec<AdvancementDisplay> redirectCodec(Function<RecordCodecBuilder.Instance<AdvancementDisplay>, ? extends App<RecordCodecBuilder.Mu<AdvancementDisplay>, AdvancementDisplay>> builder) {
-        return RecordCodecBuilder.create(instance -> instance.group(
-                ItemStack.VALIDATED_CODEC.fieldOf("icon").forGetter(AdvancementDisplay::getIcon),
-                TextCodecs.CODEC.fieldOf("title").forGetter(AdvancementDisplay::getTitle),
-                TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
-                Codec.PASSTHROUGH.optionalFieldOf("requirement").forGetter(d -> Optional.empty()),
-                Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
-                AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
-                Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
-                Codec.BOOL.optionalFieldOf("announce_to_chat", true).forGetter(AdvancementDisplay::shouldAnnounceToChat),
-                Codec.BOOL.optionalFieldOf("hidden", false).forGetter(AdvancementDisplay::isHidden)
-        ).apply(instance, (icon, title, description, requirement, background, frame, showToast, announceToChat, hidden) -> {
-
-            Text finalDescription = description;
-            if (requirement.isPresent()) {
-                finalDescription = addRequirementText(description, requirement.get());
-            }
-
-            return new AdvancementDisplay(icon, title, finalDescription, background, frame, showToast, announceToChat, hidden);
-        }));
-    }
-
-    @Unique
-    private static Text addRequirementText(Text original, Dynamic<?> requirement) {
-        MutableText modified = original.copy();
-
-        requirement.asMap(Dynamic::asString, Function.identity()).forEach((keyResult, value) -> {
-            String key = keyResult.getOrThrow();
-
-            if (value.asStreamOpt().isSuccess()) {
-                value.asStream().forEach(el -> {
-                    modified.append("QK:" + key + "*" + el.asString(""));
-                });
-            } else {
-                modified.append(Text.translatable(value.asString("")));
-            }
-        });
-
-        return modified;
-    }
+//    @Redirect(method = "<clinit>", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/codecs/RecordCodecBuilder;create(Ljava/util/function/Function;)Lcom/mojang/serialization/Codec;"))
+//    private static Codec<AdvancementDisplay> redirectCodec(Function<RecordCodecBuilder.Instance<AdvancementDisplay>, ? extends App<RecordCodecBuilder.Mu<AdvancementDisplay>, AdvancementDisplay>> builder) {
+//        return RecordCodecBuilder.create(instance -> instance.group(
+//                ItemStack.VALIDATED_CODEC.fieldOf("icon").forGetter(AdvancementDisplay::getIcon),
+//                TextCodecs.CODEC.fieldOf("title").forGetter(AdvancementDisplay::getTitle),
+//                TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
+//                Codec.PASSTHROUGH.optionalFieldOf("requirement").forGetter(d -> Optional.empty()),
+//                Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
+//                AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
+//                Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
+//                Codec.BOOL.optionalFieldOf("announce_to_chat", true).forGetter(AdvancementDisplay::shouldAnnounceToChat),
+//                Codec.BOOL.optionalFieldOf("hidden", false).forGetter(AdvancementDisplay::isHidden)
+//        ).apply(instance, (icon, title, description, requirement, background, frame, showToast, announceToChat, hidden) -> {
+//
+//            Text finalDescription = description;
+//            if (requirement.isPresent()) {
+//                finalDescription = addRequirementText(description, requirement.get());
+//            }
+//
+//            return new AdvancementDisplay(icon, title, finalDescription, background, frame, showToast, announceToChat, hidden);
+//        }));
+//    }
+//
+//    @Unique
+//    private static Text addRequirementText(Text original, Dynamic<?> requirement) {
+//        MutableText modified = original.copy();
+//
+//        requirement.asMap(Dynamic::asString, Function.identity()).forEach((keyResult, value) -> {
+//            String key = keyResult.getOrThrow();
+//
+//            if (value.asStreamOpt().isSuccess()) {
+//                value.asStream().forEach(el -> {
+//                    modified.append("QK:" + key + "*" + el.asString(""));
+//                });
+//            } else {
+//                modified.append(Text.translatable(value.asString("")));
+//            }
+//        });
+//
+//        return modified;
+//    }
 
 }

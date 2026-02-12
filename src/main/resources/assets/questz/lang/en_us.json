@@ -9,7 +9,7 @@
     "gui.questz.icon": "Icon",
     "gui.questz.save": "Save",
     "gui.questz.parent": "Parent",
-    "gui.questz.requirement": "Requirement Info",
+    "gui.questz.requirements": "Requirements:",
     "gui.questz.frame": "Frame: %s",
     "gui.questz.toast": "Toast: %s",
     "gui.questz.chat": "Chat: %s",

@@ -10,18 +10,6 @@
         "description": {
             "text": "Build a simple shelter to protect yourself from monsters."
         },
-        "requirement": {
-            "info": "\nRequires placement:",
-            "oak_planks": [
-                "\n§e- %I% 30 Oak Planks"
-            ],
-            "oak_door": [
-                "\n§e- %I% 1 Oak Door"
-            ],
-            "chest": [
-                "\n§e- %I% 1 Chest"
-            ]
-        },
         "frame": "task",
         "show_toast": false,
         "announce_to_chat": false,

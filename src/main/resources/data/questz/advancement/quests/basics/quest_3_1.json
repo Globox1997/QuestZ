@@ -8,25 +8,7 @@
             "text": "Become a skilled stonemason"
         },
         "description": {
-            "text": "Craft a set of upgraded tools.",
-            "requirement": {
-                "info": "\nRequires:",
-                "stone_axe": [
-                    "\n§e- %I% Stone Axe"
-                ],
-                "stone_hoe": [
-                    "\n§e- %I% Stone Hoe"
-                ],
-                "stone_sword": [
-                    "\n§e- %I% Stone Sword"
-                ],
-                "stone_pickaxe": [
-                    "\n§e- %I% Stone Pickaxe"
-                ],
-                "stone_shovel": [
-                    "\n§e- %I% Stone Shovel"
-                ]
-            }
+            "text": "Craft a set of upgraded tools."
         },
         "frame": "task",
         "show_toast": false,

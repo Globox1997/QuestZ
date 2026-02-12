@@ -8,13 +8,7 @@
             "text": "The Basics"
         },
         "description": {
-            "text": "Mine for stone and upgrade your tools and weapons.",
-            "requirement": {
-                "info": "\nRequires breaking:",
-                "stone": [
-                    "\n§e- %I% 64 Stones"
-                ]
-            }
+            "text": "Mine for stone and upgrade your tools and weapons."
         },
         "frame": "task",
         "show_toast": false,

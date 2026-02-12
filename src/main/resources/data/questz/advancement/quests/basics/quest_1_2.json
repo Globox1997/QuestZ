@@ -8,34 +8,7 @@
             "text": "Become a skilled woodworker"
         },
         "description": {
-            "text": "Craft various wooden items.",
-            "requirement": {
-                "info": "\nRequires crafting:",
-                "oak_door": [
-                    "\n§e- %I% 3 Oak Doors"
-                ],
-                "oak_trapdoor": [
-                    "\n§e- %I% 5 Oak Trapdoors"
-                ],
-                "oak_sign": [
-                    "\n§e- %I% 8 Oak Signs"
-                ],
-                "oak_fence": [
-                    "\n§e- %I% 16 Oak Fences"
-                ],
-                "oak_slab": [
-                    "\n§e- %I% 12 Oak Slabs"
-                ],
-                "oak_planks": [
-                    "\n§e- %I% 128 Oak Planks"
-                ],
-                "oak_button": [
-                    "\n§e- %I% 4 Oak Buttons"
-                ],
-                "oak_pressure_plate": [
-                    "\n§e- %I% 4 Oak Pressure Plates"
-                ]
-            }
+            "text": "Craft various wooden items."
         },
         "frame": "task",
         "show_toast": false,

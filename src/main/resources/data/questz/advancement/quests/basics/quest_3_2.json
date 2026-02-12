@@ -8,19 +8,7 @@
             "text": "Become a skilled stonemason"
         },
         "description": {
-            "text": "Create decorative blocks like stone bricks and slabs.",
-            "requirement": {
-                "info": "\nRequires crafting:",
-                "stone_bricks": [
-                    "\n§e- %I% 64 Stone Bricks"
-                ],
-                "stone_brick_slab": [
-                    "\n§e- %I% 16 Stone Brick Slabs"
-                ],
-                "stone_brick_stairs": [
-                    "\n§e- %I% 32 Stone Brick Stairs"
-                ]
-            }
+            "text": "Create decorative blocks like stone bricks and slabs."
         },
         "frame": "task",
         "show_toast": false,

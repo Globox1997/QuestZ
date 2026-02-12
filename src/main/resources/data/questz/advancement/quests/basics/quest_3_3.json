@@ -8,13 +8,7 @@
             "text": "Become a skilled stonemason"
         },
         "description": {
-            "text": "Upgrade your shelter to protect yourself even better from monsters.",
-            "requirement": {
-                "info": "\nRequires placement:",
-                "cobblestone": [
-                    "\n§e- %I% 64 Cobblestone"
-                ]
-            }
+            "text": "Upgrade your shelter to protect yourself even better from monsters."
         },
         "frame": "task",
         "show_toast": false,
