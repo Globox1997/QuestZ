@@ -81,6 +81,11 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     }
 
     @Override
+    public boolean shouldPause() {
+        return false;
+    }
+
+    @Override
     public void close() {
 //        this.client.setScreen(this.parent);
         this.client.setScreen(null);

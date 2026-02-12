@@ -103,24 +103,9 @@ public class QuestTab extends AdvancementTab {
     @Override
     public void render(DrawContext context, int x, int y) {
         if (!this.initialized) {
-//            this.originX = 117 - (this.maxPanX + this.minPanX) / 2;
-//            this.originY = 56 - (this.maxPanY + this.minPanY) / 2;
-
-//            if (238.0f / (float) this.maxPanX < 1.0f) {
-//                setTabScale(238.0f / (float) this.maxPanX, true);
-//                this.maxPanX *= this.tabScale;
-//                this.maxPanY *= this.tabScale;
-//            }
-//            System.out.println(this.maxPanX+ " : "+this.maxPanY);
-//            System.out.println(this.oldMaxPanX+ " : "+this.tabScale);
-//
-//            this.originX = (119.0f - (this.oldMaxPanX + this.minPanX) * this.tabScale / 2f);
-//            this.originY = ((89.5f * (1.0f + 1.0f - this.tabScale)) - (this.oldMaxPanY + this.minPanY) * this.tabScale / 2f);
             float contentCenterX = (this.minPanX + this.maxPanX) / 2.0f;
             float contentCenterY = (this.minPanY + this.maxPanY) / 2.0f;
 
-            // 2. Berechne den Offset, um diesen Punkt in die Mitte des 238x179 Fensters zu schieben
-            // Formel: (FensterMitte / Scale) - InhaltsMitte
             this.originX = (119.0f / this.tabScale) - contentCenterX;
             this.originY = (89.5f / this.tabScale) - contentCenterY;
 
@@ -212,7 +197,7 @@ public class QuestTab extends AdvancementTab {
         } else {
             for (AdvancementTabType advancementTabType : AdvancementTabType.values()) {
                 if (index < advancementTabType.getTabCount()) {
-                    return new QuestTab(client, screen, advancementTabType, index, root, (AdvancementDisplay) optional.get());
+                    return new QuestTab(client, screen, advancementTabType, index, root, optional.get());
                 }
 
                 index -= advancementTabType.getTabCount();
@@ -224,9 +209,6 @@ public class QuestTab extends AdvancementTab {
 
     @Override
     public void move(double offsetX, double offsetY) {
-//        this.originX = MathHelper.clamp(this.originX + offsetX, -10000.0D, 10000.0D);
-//        this.originY = MathHelper.clamp(this.originY + offsetY, -10000.0D, 10000.0D);
-
         double contentWidth = (this.maxPanX - this.minPanX) * this.tabScale;
         double contentHeight = (this.maxPanY - this.minPanY) * this.tabScale;
 
@@ -241,13 +223,6 @@ public class QuestTab extends AdvancementTab {
         } else {
             this.originY += offsetY;
         }
-
-//        if (this.maxPanX - this.minPanX > 234) {
-//            this.originX = MathHelper.clamp(this.originX + offsetX, (double) (-(this.maxPanX - 234)), 0.0);
-//        }
-//        if (this.maxPanY - this.minPanY > 113) {
-//            this.originY = MathHelper.clamp(this.originY + offsetY, (double) (-(this.maxPanY - 113)), 0.0);
-//        }
     }
 
     @Override
@@ -321,20 +296,4 @@ public class QuestTab extends AdvancementTab {
         return hoveredWidget;
     }
 
-    //    public void setMaxPan(int maxPanX, int maxPanY) {
-//        this.maxPanX = maxPanX;
-//        this.maxPanY = maxPanY;
-//    }
-//
-//    public int getMaxPan() {
-//        return this.maxPanX;
-//    }
-//
-//    public int getOldMaxPanX() {
-//        return this.oldMaxPanX;
-//    }
-//
-//    public int getOldMaxPanY() {
-//        return this.oldMaxPanY;
-//    }
 }

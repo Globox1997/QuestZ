@@ -12,6 +12,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.questz.mixin.client.TextFieldWidgetAccessor;
 import net.questz.network.packet.QuestCreationPacket;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +44,7 @@ public class QuestEditorScreen extends Screen {
 
     public QuestEditorScreen(@Nullable QuestWidget questWidget) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
-                questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
+                questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest").formatted(Formatting.YELLOW));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
     }
 
@@ -211,12 +212,12 @@ public class QuestEditorScreen extends Screen {
 
         ButtonWidget removeBtn = ButtonWidget.builder(Text.literal("X"), (button) -> {
             removeCriteriaEntry(entry);
-        }).dimensions(rightX + 205, currentY, 25, 20).build();
+        }).dimensions(rightX + 205, currentY, 20, 20).build();
         this.addDrawableChild(removeBtn);
 
         entry.triggerButton = ButtonWidget.builder(Text.literal(getTriggerDisplayName(entry.trigger)), (button) -> {
             openTriggerSelectionScreen(entry);
-        }).dimensions(rightX + 235, currentY, 85, 20).build();
+        }).dimensions(rightX + 230, currentY, 90, 20).build();
         this.addDrawableChild(entry.triggerButton);
 
         currentY += 25;
@@ -372,8 +373,8 @@ public class QuestEditorScreen extends Screen {
             criterion.put("trigger", entry.trigger);
 
             Map<String, Object> conditions = new LinkedHashMap<>();
-
             TriggerConfig config = TriggerConfig.get(entry.trigger);
+
             for (TriggerField field : config.fields) {
                 String value = entry.fieldValues.get(field.key);
                 if (value != null && !value.isEmpty()) {
@@ -411,10 +412,7 @@ public class QuestEditorScreen extends Screen {
 
         for (int i = 0; i < parts.length - 1; i++) {
             String part = parts[i];
-            if (!current.containsKey(part)) {
-                current.put(part, new LinkedHashMap<String, Object>());
-            }
-            current = (Map<String, Object>) current.get(part);
+            current = (Map<String, Object>) current.computeIfAbsent(part, k -> new LinkedHashMap<String, Object>());
         }
 
         current.put(parts[parts.length - 1], value);
@@ -433,10 +431,18 @@ public class QuestEditorScreen extends Screen {
                     return Arrays.asList(value.split(","));
                 case "item_array":
                     List<Map<String, Object>> items = new ArrayList<>();
-                    for (String item : value.split(",")) {
-                        Map<String, Object> itemMap = new LinkedHashMap<>();
-                        itemMap.put("items", Collections.singletonList(item.trim()));
-                        items.add(itemMap);
+                    for (String part : value.split(",")) {
+                        Map<String, Object> itemEntry = new LinkedHashMap<>();
+                        String[] subParts = part.trim().split(";");
+
+                        itemEntry.put("items", Collections.singletonList(subParts[0]));
+
+                        if (subParts.length > 1) {
+                            Map<String, Object> countMap = new LinkedHashMap<>();
+                            countMap.put("min", Integer.parseInt(subParts[1]));
+                            itemEntry.put("count", countMap);
+                        }
+                        items.add(itemEntry);
                     }
                     return items;
                 default:
@@ -497,7 +503,7 @@ public class QuestEditorScreen extends Screen {
         static {
             // Inventory triggers
             TriggerConfig invChanged = new TriggerConfig("minecraft:inventory_changed");
-            invChanged.addField(new TriggerField("items", "Items", "minecraft:diamond,minecraft:iron_ingot", "", "string_array", "items"));
+            invChanged.addField(new TriggerField("items", "Items", "minecraft:diamond", "", "item_array", "items"));
             CONFIGS.put("minecraft:inventory_changed", invChanged);
 
             // Location trigger
