@@ -12,7 +12,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.questz.init.ConfigInit;
 import net.questz.mixin.client.TextFieldWidgetAccessor;
 import net.questz.network.packet.QuestCreationPacket;
 import org.jetbrains.annotations.Nullable;
@@ -33,6 +33,14 @@ public class QuestEditorScreen extends Screen {
     private ButtonWidget frameButton;
     private String currentFrame = "task";
 
+    private List<String> availableParents = new ArrayList<>();
+    private int parentScrollOffset = 0;
+    private static final int MAX_VISIBLE_PARENTS = 5;
+    private boolean showParentList = false;
+    private int parentListY = 0;
+    private int parentListX = 0;
+    private int parentListWidth = 0;
+
     private boolean showToast = false;
     private boolean announceChat = false;
     private boolean isHidden = false;
@@ -44,12 +52,14 @@ public class QuestEditorScreen extends Screen {
 
     public QuestEditorScreen(@Nullable QuestWidget questWidget) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
-                questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest").formatted(Formatting.YELLOW));
+                questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
     }
 
     @Override
     protected void init() {
+        loadAvailableParents();
+
         int leftColumnWidth = 320;
         int rightColumnWidth = 320;
         int columnGap = 20;
@@ -88,6 +98,11 @@ public class QuestEditorScreen extends Screen {
             this.parentField.setText(this.placedAdvancement.getParent().getAdvancementEntry().id().toString());
         }
         this.addSelectableChild(this.parentField);
+
+        parentListX = leftX;
+        parentListY = leftY + 25;
+        parentListWidth = leftColumnWidth;
+
         leftY += 32;
 
         this.frameButton = ButtonWidget.builder(Text.translatable("gui.questz.frame", currentFrame.toUpperCase()), (button) -> {
@@ -126,6 +141,36 @@ public class QuestEditorScreen extends Screen {
         this.addDrawableChild(this.addCriteriaButton);
 
         updateCriteriaWidgets();
+    }
+
+    private void loadAvailableParents() {
+        availableParents.clear();
+
+        if (this.client != null && this.client.player != null) {
+            var advancementHandler = this.client.player.networkHandler.getAdvancementHandler();
+            var manager = advancementHandler.getManager();
+
+            for (PlacedAdvancement advancement : manager.getRoots()) {
+                collectAdvancements(advancement, availableParents);
+            }
+            Collections.sort(availableParents);
+        }
+    }
+
+    private void collectAdvancements(PlacedAdvancement advancement, List<String> list) {
+        String id = advancement.getAdvancementEntry().id().toString();
+
+        if (!ConfigInit.CONFIG.questAdvancementNamespaceIds.contains(advancement.getAdvancementEntry().id().getNamespace())) {
+            return;
+        }
+
+        if (this.placedAdvancement == null || !id.equals(this.placedAdvancement.getAdvancementEntry().id().toString())) {
+            list.add(id);
+        }
+
+        for (PlacedAdvancement child : advancement.getChildren()) {
+            collectAdvancements(child, list);
+        }
     }
 
     private void addCriteriaEntry() {
@@ -292,6 +337,10 @@ public class QuestEditorScreen extends Screen {
         this.iconField.render(context, mouseX, mouseY, delta);
         this.parentField.render(context, mouseX, mouseY, delta);
 
+        if (showParentList) {
+            renderParentSelectionList(context, mouseX, mouseY);
+        }
+
         context.drawTextWithShadow(this.textRenderer, Text.literal("§lCriteria"), rightX, y - 10, 0xFFFFFF);
 
         if (!criteriaEntries.isEmpty()) {
@@ -315,6 +364,51 @@ public class QuestEditorScreen extends Screen {
         }
     }
 
+    private void renderParentSelectionList(DrawContext context, int mouseX, int mouseY) {
+        int listHeight = Math.min(MAX_VISIBLE_PARENTS, availableParents.size()) * 22 + 4;
+
+        context.getMatrices().push();
+        context.getMatrices().translate(0,0,100);
+        context.fill(parentListX - 1, parentListY - 1, parentListX + parentListWidth + 1, parentListY + listHeight + 1, 0xFFFFFFFF);
+        context.fill(parentListX, parentListY, parentListX + parentListWidth, parentListY + listHeight, 0xFF000000);
+
+        int currentY = parentListY + 2;
+        int endIndex = Math.min(parentScrollOffset + MAX_VISIBLE_PARENTS, availableParents.size());
+
+        for (int i = parentScrollOffset; i < endIndex; i++) {
+            String parent = availableParents.get(i);
+            boolean isHovered = mouseX >= parentListX && mouseX <= parentListX + parentListWidth &&
+                    mouseY >= currentY && mouseY <= currentY + 20;
+
+            if (isHovered) {
+                context.fill(parentListX + 1, currentY, parentListX + parentListWidth - 1, currentY + 20, 0xFF404040);
+            }
+
+            String displayName = parent;
+            int maxWidth = parentListWidth - 8;
+            if (this.textRenderer.getWidth(displayName) > maxWidth) {
+                while (this.textRenderer.getWidth(displayName + "...") > maxWidth && displayName.length() > 0) {
+                    displayName = displayName.substring(0, displayName.length() - 1);
+                }
+                displayName += "...";
+            }
+
+            context.drawTextWithShadow(this.textRenderer, Text.literal(displayName), parentListX + 4, currentY + 6, 0xE0E0E0);
+            currentY += 22;
+        }
+
+        if (availableParents.size() > MAX_VISIBLE_PARENTS) {
+            String scrollInfo = String.format("%d-%d of %d",
+                    parentScrollOffset + 1,
+                    endIndex,
+                    availableParents.size());
+            context.drawTextWithShadow(this.textRenderer, Text.literal(scrollInfo),
+                    parentListX + parentListWidth - this.textRenderer.getWidth(scrollInfo) - 4,
+                    parentListY + listHeight + 4, 0x808080);
+        }
+        context.getMatrices().pop();
+    }
+
     @Override
     public void close() {
         this.client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), true));
@@ -326,7 +420,50 @@ public class QuestEditorScreen extends Screen {
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (parentField.isMouseOver(mouseX, mouseY)) {
+            showParentList = !showParentList;
+            parentScrollOffset = 0;
+            return true;
+        }
+
+        if (showParentList && button == 0) {
+            int listHeight = Math.min(MAX_VISIBLE_PARENTS, availableParents.size()) * 22 + 4;
+            if (mouseX >= parentListX && mouseX <= parentListX + parentListWidth &&
+                    mouseY >= parentListY && mouseY <= parentListY + listHeight) {
+
+                int relativeY = (int) (mouseY - parentListY - 2);
+                int clickedIndex = relativeY / 22;
+                int actualIndex = parentScrollOffset + clickedIndex;
+
+                if (actualIndex >= 0 && actualIndex < availableParents.size()) {
+                    parentField.setText(availableParents.get(actualIndex));
+                    showParentList = false;
+                    return true;
+                }
+            } else {
+                showParentList = false;
+            }
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (showParentList) {
+            int listHeight = Math.min(MAX_VISIBLE_PARENTS, availableParents.size()) * 22 + 4;
+            if (mouseX >= parentListX && mouseX <= parentListX + parentListWidth &&
+                    mouseY >= parentListY && mouseY <= parentListY + listHeight) {
+
+                if (availableParents.size() > MAX_VISIBLE_PARENTS) {
+                    parentScrollOffset = Math.max(0, Math.min(parentScrollOffset - (int) verticalAmount,
+                            availableParents.size() - MAX_VISIBLE_PARENTS));
+                    return true;
+                }
+            }
+        }
+
         if (criteriaEntries.size() > MAX_VISIBLE_CRITERIA) {
             scrollOffset = Math.max(0, Math.min(scrollOffset - (int) verticalAmount, criteriaEntries.size() - MAX_VISIBLE_CRITERIA));
             updateCriteriaWidgets();
@@ -373,8 +510,8 @@ public class QuestEditorScreen extends Screen {
             criterion.put("trigger", entry.trigger);
 
             Map<String, Object> conditions = new LinkedHashMap<>();
-            TriggerConfig config = TriggerConfig.get(entry.trigger);
 
+            TriggerConfig config = TriggerConfig.get(entry.trigger);
             for (TriggerField field : config.fields) {
                 String value = entry.fieldValues.get(field.key);
                 if (value != null && !value.isEmpty()) {
@@ -867,7 +1004,7 @@ public class QuestEditorScreen extends Screen {
                     int relativeY = (int) (mouseY - this.getY() - 4);
 
                     int cursorPos = getCursorPositionFromMouse(relativeX, relativeY);
-                    this.setCursor(cursorPos,false);
+                    this.setCursor(cursorPos, false);
                     this.setSelectionStart(cursorPos);
                     this.setSelectionEnd(cursorPos);
 
