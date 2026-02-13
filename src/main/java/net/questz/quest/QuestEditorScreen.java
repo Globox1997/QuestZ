@@ -1,9 +1,12 @@
 package net.questz.quest;
 
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.advancement.AdvancementCriterion;
+import net.minecraft.advancement.AdvancementRewards;
 import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -12,9 +15,13 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.questz.access.CriterionAccess;
+import net.questz.access.RewardAccess;
 import net.questz.init.ConfigInit;
 import net.questz.mixin.client.TextFieldWidgetAccessor;
 import net.questz.network.packet.QuestCreationPacket;
+import net.questz.util.CriterionDataExtractor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -36,7 +43,7 @@ public class QuestEditorScreen extends Screen {
     private ButtonWidget frameButton;
     private String currentFrame = "task";
 
-    private List<String> availableParents = new ArrayList<>();
+    private final List<String> availableParents = new ArrayList<>();
     private int parentScrollOffset = 0;
     private static final int MAX_VISIBLE_PARENTS = 5;
     private boolean showParentList = false;
@@ -53,10 +60,100 @@ public class QuestEditorScreen extends Screen {
     private int scrollOffset = 0;
     private static final int MAX_VISIBLE_CRITERIA = 3;
 
+    private String loadedCommands = "";
+    private String loadedItems = "";
+    private String loadedText = "";
+
     public QuestEditorScreen(@Nullable QuestWidget questWidget) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
                 questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
+
+        if (this.placedAdvancement != null) {
+            loadExistingAdvancementData();
+        }
+    }
+
+    private void loadExistingAdvancementData() {
+        var advancement = this.placedAdvancement.getAdvancement();
+
+        if (advancement.display().isPresent()) {
+            var display = advancement.display().get();
+
+            this.currentFrame = display.getFrame().asString();
+
+            this.showToast = display.shouldShowToast();
+            this.announceChat = display.shouldAnnounceToChat();
+            this.isHidden = display.isHidden();
+        }
+
+        if (advancement.rewards() != null) {
+            AdvancementRewards rewards = advancement.rewards();
+            loadRewardsFromMixin(rewards);
+        }
+
+        loadCriteriaFromAdvancement();
+    }
+
+    private void loadRewardsFromMixin(AdvancementRewards rewards) {
+        try {
+            RewardAccess rewardAccess = (RewardAccess) (Object) rewards;
+
+            List<String> commands = rewardAccess.questz$getCommands();
+            if (commands != null && !commands.isEmpty()) {
+                loadedCommands = String.join(", ", commands);
+            }
+
+            Map<Identifier, Integer> items = rewardAccess.questz$getItems();
+            if (items != null && !items.isEmpty()) {
+                StringBuilder itemsBuilder = new StringBuilder();
+                boolean first = true;
+                for (Map.Entry<Identifier, Integer> entry : items.entrySet()) {
+                    if (!first) itemsBuilder.append(", ");
+                    itemsBuilder.append(entry.getKey().toString()).append(":").append(entry.getValue());
+                    first = false;
+                }
+                loadedItems = itemsBuilder.toString();
+            }
+
+            String text = rewardAccess.questz$getText();
+            if (text != null && !text.isEmpty()) {
+                loadedText = text;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error loading rewards from mixin: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void loadCriteriaFromAdvancement() {
+        try {
+            var advancement = this.placedAdvancement.getAdvancement();
+            var criteria = advancement.criteria();
+
+            for (Map.Entry<String, AdvancementCriterion<?>> entry : criteria.entrySet()) {
+                CriteriaEntry criteriaEntry = new CriteriaEntry();
+                criteriaEntry.name = entry.getKey();
+
+                var criterion = entry.getValue();
+
+                CriterionAccess criterionAccess = (CriterionAccess) (Object) criterion;
+                Identifier triggerId = criterionAccess.questz$getTriggerId();
+                criteriaEntry.trigger = triggerId.toString();
+
+                JsonObject criterionJson = CriterionDataExtractor.toJson(criterion);
+                Map<String, String> conditionData = CriterionDataExtractor.extractConditionData(criterionJson);
+
+                criteriaEntry.fieldValues.putAll(conditionData);
+
+                criteriaEntries.add(criteriaEntry);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error loading criteria from advancement: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -110,16 +207,25 @@ public class QuestEditorScreen extends Screen {
 
         this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
         this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond"));
+        if (!loadedCommands.isEmpty()) {
+            this.commandsField.setText(loadedCommands);
+        }
         this.addSelectableChild(this.commandsField);
         leftY += 32;
 
         this.itemsField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 40);
         this.itemsField.setPlaceholder(Text.literal("minecraft:diamond:5, minecraft:iron_ingot:10"));
+        if (!loadedItems.isEmpty()) {
+            this.itemsField.setText(loadedItems);
+        }
         this.addSelectableChild(this.itemsField);
         leftY += 52;
 
         this.textField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Reward Text"));
         this.textField.setPlaceholder(Text.literal("Congratulations!"));
+        if (!loadedText.isEmpty()) {
+            this.textField.setText(loadedText);
+        }
         this.addSelectableChild(this.textField);
         leftY += 32;
 
@@ -395,7 +501,7 @@ public class QuestEditorScreen extends Screen {
         int listHeight = Math.min(MAX_VISIBLE_PARENTS, availableParents.size()) * 22 + 4;
 
         context.getMatrices().push();
-        context.getMatrices().translate(0,0,100);
+        context.getMatrices().translate(0, 0, 100);
         context.fill(parentListX - 1, parentListY - 1, parentListX + parentListWidth + 1, parentListY + listHeight + 1, 0xFFFFFFFF);
         context.fill(parentListX, parentListY, parentListX + parentListWidth, parentListY + listHeight, 0xFF000000);
 
@@ -708,6 +814,27 @@ public class QuestEditorScreen extends Screen {
         private static final Map<String, TriggerConfig> CONFIGS = new HashMap<>();
 
         static {
+            // QuestZ custom triggers
+            TriggerConfig craftItemCount = new TriggerConfig("questz:craft_item_count");
+            craftItemCount.addField(new TriggerField("object", "Item", "minecraft:stone", "", "string"));
+            craftItemCount.addField(new TriggerField("count", "Count", "1", "1", "int"));
+            CONFIGS.put("questz:craft_item_count", craftItemCount);
+
+            TriggerConfig placedBlockCount = new TriggerConfig("questz:placed_block_count");
+            placedBlockCount.addField(new TriggerField("object", "Block", "minecraft:stone", "", "string"));
+            placedBlockCount.addField(new TriggerField("count", "Count", "1", "1", "int"));
+            CONFIGS.put("questz:placed_block_count", placedBlockCount);
+
+            TriggerConfig minedBlockCount = new TriggerConfig("questz:mined_block_count");
+            minedBlockCount.addField(new TriggerField("object", "Block", "minecraft:stone", "", "string"));
+            minedBlockCount.addField(new TriggerField("count", "Count", "1", "1", "int"));
+            CONFIGS.put("questz:mined_block_count", minedBlockCount);
+
+            TriggerConfig killedMobCount = new TriggerConfig("questz:killed_mob_count");
+            killedMobCount.addField(new TriggerField("object", "Entity", "minecraft:zombie", "", "string"));
+            killedMobCount.addField(new TriggerField("count", "Count", "1", "1", "int"));
+            CONFIGS.put("questz:killed_mob_count", killedMobCount);
+
             // Inventory triggers
             TriggerConfig invChanged = new TriggerConfig("minecraft:inventory_changed");
             invChanged.addField(new TriggerField("items", "Items", "minecraft:diamond", "", "item_array", "items"));
@@ -730,17 +857,6 @@ public class QuestEditorScreen extends Screen {
             itemUsed.addField(new TriggerField("item", "Item", "minecraft:diamond", "", "string", "item.items"));
             CONFIGS.put("minecraft:item_used_on_block", itemUsed);
 
-            // Placed block trigger (custom)
-            TriggerConfig placedBlock = new TriggerConfig("placed_block_count");
-            placedBlock.addField(new TriggerField("object", "Block", "minecraft:stone", "", "string"));
-            placedBlock.addField(new TriggerField("count", "Count", "1", "1", "int"));
-            CONFIGS.put("placed_block_count", placedBlock);
-
-            // Add all vanilla triggers
-            addVanillaTriggers();
-        }
-
-        private static void addVanillaTriggers() {
             // Bred animals
             TriggerConfig bredAnimals = new TriggerConfig("minecraft:bred_animals");
             bredAnimals.addField(new TriggerField("child", "Child Entity", "minecraft:cow", "", "string", "child.type"));

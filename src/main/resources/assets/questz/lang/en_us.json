@@ -10,6 +10,7 @@
     "gui.questz.save": "Save",
     "gui.questz.parent": "Parent",
     "gui.questz.commands": "Commands",
+    "gui.questz.requirements": "Reqruirements",
     "gui.questz.items": "Items (id:amount)",
     "gui.questz.text": "Text",
     "gui.questz.frame": "Frame: %s",
@@ -18,6 +19,8 @@
     "gui.questz.hidden": "Hidden: %s",
     "gui.questz.example": "Example...",
     "gui.questz.reward": "Reward:",
+    "gui.questz.criteria": "Criteria",
+    "gui.questz.addCriteria": "+ Add Criteria",
 
     "text.autoconfig.questz.title": "QuestZ Config",
     "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",
