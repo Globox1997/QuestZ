@@ -8,7 +8,7 @@
         "commands": [
             "/give @p gold_block"
         ],
-        "text": ""
+        "text": "Hello, this will be your rewards"
     },
     "display": {
         "icon": {

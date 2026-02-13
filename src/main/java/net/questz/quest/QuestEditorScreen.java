@@ -29,6 +29,9 @@ public class QuestEditorScreen extends Screen {
     private MultilineTextFieldWidget descField;
     private TextFieldWidget iconField;
     private TextFieldWidget parentField;
+    private TextFieldWidget commandsField;
+    private MultilineTextFieldWidget itemsField;
+    private TextFieldWidget textField;
 
     private ButtonWidget frameButton;
     private String currentFrame = "task";
@@ -103,6 +106,21 @@ public class QuestEditorScreen extends Screen {
         parentListY = leftY + 25;
         parentListWidth = leftColumnWidth;
 
+        leftY += 32;
+
+        this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
+        this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond"));
+        this.addSelectableChild(this.commandsField);
+        leftY += 32;
+
+        this.itemsField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 40);
+        this.itemsField.setPlaceholder(Text.literal("minecraft:diamond:5, minecraft:iron_ingot:10"));
+        this.addSelectableChild(this.itemsField);
+        leftY += 52;
+
+        this.textField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Reward Text"));
+        this.textField.setPlaceholder(Text.literal("Congratulations!"));
+        this.addSelectableChild(this.textField);
         leftY += 32;
 
         this.frameButton = ButtonWidget.builder(Text.translatable("gui.questz.frame", currentFrame.toUpperCase()), (button) -> {
@@ -198,9 +216,12 @@ public class QuestEditorScreen extends Screen {
         this.addSelectableChild(this.descField);
         this.addSelectableChild(this.iconField);
         this.addSelectableChild(this.parentField);
+        this.addSelectableChild(this.commandsField);
+        this.addSelectableChild(this.itemsField);
+        this.addSelectableChild(this.textField);
         this.addDrawableChild(this.frameButton);
 
-        int toggleY = y + 32 + 72 + 32 + 32 + 25;
+        int toggleY = y + 32 + 72 + 32 + 32 + 32 + 52 + 32 + 25;
         int btnWidth = (leftColumnWidth - 4) / 3;
 
         this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.toast", showToast), (btn) -> {
@@ -331,11 +352,17 @@ public class QuestEditorScreen extends Screen {
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.description"), leftX, y + 22, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.icon"), leftX, y + 94, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.parent"), leftX, y + 126, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.commands"), leftX, y + 158, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.items"), leftX, y + 190, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.text"), leftX, y + 242, 0xA0A0A0);
 
         this.titleField.render(context, mouseX, mouseY, delta);
         this.descField.render(context, mouseX, mouseY, delta);
         this.iconField.render(context, mouseX, mouseY, delta);
         this.parentField.render(context, mouseX, mouseY, delta);
+        this.commandsField.render(context, mouseX, mouseY, delta);
+        this.itemsField.render(context, mouseX, mouseY, delta);
+        this.textField.render(context, mouseX, mouseY, delta);
 
         if (showParentList) {
             renderParentSelectionList(context, mouseX, mouseY);
@@ -533,6 +560,49 @@ public class QuestEditorScreen extends Screen {
 
         advancement.put("criteria", criteria);
         advancement.put("requirements", requirements);
+
+        Map<String, Object> rewards = new LinkedHashMap<>();
+
+        // Parsing commands (format: command1, command2)
+        if (!this.commandsField.getText().isEmpty()) {
+            String[] commandArray = this.commandsField.getText().split(",");
+            List<String> commandList = new ArrayList<>();
+            for (String cmd : commandArray) {
+                commandList.add(cmd.trim());
+            }
+            rewards.put("commands", commandList);
+        }
+
+        // Parsing items (format: minecraft:diamond:5, minecraft:iron_ingot:10)
+        if (!this.itemsField.getText().isEmpty()) {
+            Map<String, Integer> itemsMap = new LinkedHashMap<>();
+            String[] itemEntries = this.itemsField.getText().split(",");
+            for (String itemEntry : itemEntries) {
+                String[] parts = itemEntry.trim().split(":");
+                if (parts.length >= 2) {
+                    String itemId = parts[0] + ":" + parts[1];
+                    int amount = 1;
+                    if (parts.length >= 3) {
+                        try {
+                            amount = Integer.parseInt(parts[2]);
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                    itemsMap.put(itemId, amount);
+                }
+            }
+            if (!itemsMap.isEmpty()) {
+                rewards.put("items", itemsMap);
+            }
+        }
+
+        if (!this.textField.getText().isEmpty()) {
+            rewards.put("text", this.textField.getText());
+        }
+
+        if (!rewards.isEmpty()) {
+            advancement.put("rewards", rewards);
+        }
 
         String fileName = this.titleField.getText().toLowerCase().replace(" ", "_");
         if (fileName.isEmpty()) fileName = "new_quest";
