@@ -65,8 +65,6 @@ public class QuestEditorScreen extends Screen {
     private String loadedItems = "";
     private String loadedText = "";
 
-    // TODO: CRITERIA DISPLAY A LITTLE BUGGY + WRONG INVENTORY_CHANGED SET
-
     public QuestEditorScreen(@Nullable QuestWidget questWidget) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
                 questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
@@ -144,21 +142,9 @@ public class QuestEditorScreen extends Screen {
                 CriterionAccess criterionAccess = (CriterionAccess) (Object) criterion;
                 Identifier triggerId = criterionAccess.questz$getTriggerId();
                 criteriaEntry.trigger = triggerId.toString();
-//                System.out.println(criterion);
-//                [16:43:34] [Render thread/INFO] (Minecraft) [STDOUT]:
-//                AdvancementCriterion[trigger=net.minecraft.advancement.criterion.InventoryChangedCriterion@33592b53,
-//                triggerInstance=Conditions[player=Optional.empty, slots=Slots[occupied=IntRange[min=Optional.empty, max=Optional.empty,
-//                minSq=Optional.empty, maxSq=Optional.empty], full=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty,
-//                maxSq=Optional.empty], empty=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty, maxSq=Optional.empty]],
-//                items=[ItemPredicate[items=Optional[DirectSet[[Reference{ResourceKey[minecraft:item / minecraft:wooden_axe]=minecraft:wooden_axe}]]],
-//                count=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty, maxSq=Optional.empty], components=[], subPredicates={}]]]]
-
 
                 JsonObject criterionJson = CriterionDataExtractor.toJson(criterion);
-//                System.out.println("TEST: "+criterionJson);
                 Map<String, String> conditionData = CriterionDataExtractor.extractConditionData(criterionJson);
-
-//                System.out.println(conditionData+ " : "+conditionData.size());
 
                 criteriaEntry.fieldValues.putAll(conditionData);
 
