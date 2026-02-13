@@ -69,17 +69,17 @@ public class AdvancementDisplayMixin implements DisplayAccess {
                 ItemStack.VALIDATED_CODEC.fieldOf("icon").forGetter(AdvancementDisplay::getIcon),
                 TextCodecs.CODEC.fieldOf("title").forGetter(AdvancementDisplay::getTitle),
                 TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
-                Codec.FLOAT.optionalFieldOf("x").forGetter(d -> Optional.empty()),
-                Codec.FLOAT.optionalFieldOf("y").forGetter(d -> Optional.empty()),
+                Codec.FLOAT.optionalFieldOf("x_manual").forGetter(d -> Optional.empty()),
+                Codec.FLOAT.optionalFieldOf("y_manual").forGetter(d -> Optional.empty()),
                 Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
                 AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
                 Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
                 Codec.BOOL.optionalFieldOf("announce_to_chat", true).forGetter(AdvancementDisplay::shouldAnnounceToChat),
                 Codec.BOOL.optionalFieldOf("hidden", false).forGetter(AdvancementDisplay::isHidden)
-        ).apply(instance, (icon, title, description, x, y, background, frame, showToast, announceToChat, hidden) -> {
+        ).apply(instance, (icon, title, description, xManual, yManual, background, frame, showToast, announceToChat, hidden) -> {
             AdvancementDisplay advancementDisplay = new AdvancementDisplay(icon, title, description, background, frame, showToast, announceToChat, hidden);
-            if (x.isPresent() && y.isPresent() && advancementDisplay instanceof DisplayAccess displayAccess) {
-                displayAccess.setManualPosition(x.get(), y.get());
+            if (xManual.isPresent() && yManual.isPresent() && advancementDisplay instanceof DisplayAccess displayAccess) {
+                displayAccess.setManualPosition(xManual.get(), yManual.get());
             }
             return advancementDisplay;
         }));
@@ -94,7 +94,12 @@ public class AdvancementDisplayMixin implements DisplayAccess {
     @Inject(method = "fromPacket", at = @At("RETURN"))
     private static void fromPacketMixin(RegistryByteBuf buf, CallbackInfoReturnable<AdvancementDisplay> info) {
         if (info.getReturnValue() instanceof DisplayAccess displayAccess) {
-            displayAccess.setManualPosition(buf.readFloat(), buf.readFloat());
+            float manualX = buf.readFloat();
+            float manualY = buf.readFloat();
+
+            if ((manualX > 0.001F || manualX < -0.001F) && (manualY > 0.001F || manualY < -0.001F)) {
+                displayAccess.setManualPosition(manualX, manualY);
+            }
         }
     }
 
