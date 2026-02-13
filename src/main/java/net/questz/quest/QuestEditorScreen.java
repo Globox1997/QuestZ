@@ -65,6 +65,8 @@ public class QuestEditorScreen extends Screen {
     private String loadedItems = "";
     private String loadedText = "";
 
+    // TODO: CRITERIA DISPLAY A LITTLE BUGGY + WRONG INVENTORY_CHANGED SET
+
     public QuestEditorScreen(@Nullable QuestWidget questWidget) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
                 questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
@@ -142,14 +144,27 @@ public class QuestEditorScreen extends Screen {
                 CriterionAccess criterionAccess = (CriterionAccess) (Object) criterion;
                 Identifier triggerId = criterionAccess.questz$getTriggerId();
                 criteriaEntry.trigger = triggerId.toString();
+//                System.out.println(criterion);
+//                [16:43:34] [Render thread/INFO] (Minecraft) [STDOUT]:
+//                AdvancementCriterion[trigger=net.minecraft.advancement.criterion.InventoryChangedCriterion@33592b53,
+//                triggerInstance=Conditions[player=Optional.empty, slots=Slots[occupied=IntRange[min=Optional.empty, max=Optional.empty,
+//                minSq=Optional.empty, maxSq=Optional.empty], full=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty,
+//                maxSq=Optional.empty], empty=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty, maxSq=Optional.empty]],
+//                items=[ItemPredicate[items=Optional[DirectSet[[Reference{ResourceKey[minecraft:item / minecraft:wooden_axe]=minecraft:wooden_axe}]]],
+//                count=IntRange[min=Optional.empty, max=Optional.empty, minSq=Optional.empty, maxSq=Optional.empty], components=[], subPredicates={}]]]]
+
 
                 JsonObject criterionJson = CriterionDataExtractor.toJson(criterion);
+//                System.out.println("TEST: "+criterionJson);
                 Map<String, String> conditionData = CriterionDataExtractor.extractConditionData(criterionJson);
+
+//                System.out.println(conditionData+ " : "+conditionData.size());
 
                 criteriaEntry.fieldValues.putAll(conditionData);
 
                 criteriaEntries.add(criteriaEntry);
             }
+
 
         } catch (Exception e) {
             System.err.println("Error loading criteria from advancement: " + e.getMessage());
@@ -375,6 +390,11 @@ public class QuestEditorScreen extends Screen {
     }
 
     private int renderCriteriaEntry(CriteriaEntry entry, int rightX, int rightColumnWidth, int startY) {
+        entry.nameField = null;
+        entry.triggerButton = null;
+        entry.removeButton = null;
+        entry.dynamicFields.clear();
+
         int currentY = startY + 5;
 
         entry.nameField = new TextFieldWidget(this.textRenderer, rightX, currentY, 200, 20, Text.translatable("gui.questz.criteriaName"));
@@ -383,20 +403,17 @@ public class QuestEditorScreen extends Screen {
         entry.nameField.setChangedListener(text -> entry.name = text);
         this.addSelectableChild(entry.nameField);
 
-        ButtonWidget removeBtn = ButtonWidget.builder(Text.literal("X"), (button) -> {
+        entry.removeButton = ButtonWidget.builder(Text.literal("X"), (button) -> {
             removeCriteriaEntry(entry);
         }).dimensions(rightX + 205, currentY, 20, 20).build();
-        this.addDrawableChild(removeBtn);
 
         entry.triggerButton = ButtonWidget.builder(Text.literal(getTriggerDisplayName(entry.trigger)), (button) -> {
             openTriggerSelectionScreen(entry);
         }).dimensions(rightX + 230, currentY, 90, 20).build();
-        this.addDrawableChild(entry.triggerButton);
 
         currentY += 25;
 
         TriggerConfig config = TriggerConfig.get(entry.trigger);
-        int fieldIndex = 0;
 
         for (TriggerField field : config.fields) {
             TextFieldWidget fieldWidget = new TextFieldWidget(
@@ -419,7 +436,6 @@ public class QuestEditorScreen extends Screen {
             entry.dynamicFields.put(field.key, fieldWidget);
 
             currentY += 25;
-            fieldIndex++;
         }
 
         currentY += 5;
@@ -486,15 +502,38 @@ public class QuestEditorScreen extends Screen {
             context.drawTextWithShadow(this.textRenderer, Text.literal(scrollHint), rightX + 130, y - 10, 0x808080);
 
             if (criteriaEntries.size() > MAX_VISIBLE_CRITERIA) {
-                context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.scroll"), rightX + 132+ this.textRenderer.getWidth(scrollHint), y -10, 0x606060);
+                context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.scroll"), rightX + 132 + this.textRenderer.getWidth(scrollHint), y - 10, 0x606060);
             }
         }
+        int criteriaY = y + 25;
+        int maxCriteriaY = this.height - 20;
 
-        for (CriteriaEntry entry : criteriaEntries) {
-            if (entry.nameField != null) entry.nameField.render(context, mouseX, mouseY, delta);
-            for (TextFieldWidget field : entry.dynamicFields.values()) {
-                if (field != null) field.render(context, mouseX, mouseY, delta);
+        for (int i = scrollOffset; i < criteriaEntries.size(); i++) {
+            CriteriaEntry entry = criteriaEntries.get(i);
+
+            int entryHeight = calculateEntryHeight(entry);
+            if (criteriaY + entryHeight > maxCriteriaY) {
+                break;
             }
+
+            if (entry.nameField != null) {
+                entry.nameField.render(context, mouseX, mouseY, delta);
+            }
+
+            if (entry.removeButton != null) {
+                entry.removeButton.render(context, mouseX, mouseY, delta);
+            }
+            if (entry.triggerButton != null) {
+                entry.triggerButton.render(context, mouseX, mouseY, delta);
+            }
+
+            for (TextFieldWidget field : entry.dynamicFields.values()) {
+                if (field != null) {
+                    field.render(context, mouseX, mouseY, delta);
+                }
+            }
+
+            criteriaY += entryHeight;
         }
     }
 
@@ -578,6 +617,35 @@ public class QuestEditorScreen extends Screen {
             } else {
                 showParentList = false;
             }
+        }
+
+        int rightColumnWidth = 320;
+        int columnGap = 20;
+        int leftX = 20;
+        int rightX = leftX + 320 + columnGap;
+        int y = 30;
+        int criteriaY = y + 25;
+        int maxCriteriaY = this.height - 20;
+
+        for (int i = scrollOffset; i < criteriaEntries.size(); i++) {
+            CriteriaEntry entry = criteriaEntries.get(i);
+
+            int entryHeight = calculateEntryHeight(entry);
+            if (criteriaY + entryHeight > maxCriteriaY) {
+                break;
+            }
+
+            if (entry.removeButton != null && entry.removeButton.isMouseOver(mouseX, mouseY)) {
+                entry.removeButton.mouseClicked(mouseX, mouseY, button);
+                return true;
+            }
+
+            if (entry.triggerButton != null && entry.triggerButton.isMouseOver(mouseX, mouseY)) {
+                entry.triggerButton.mouseClicked(mouseX, mouseY, button);
+                return true;
+            }
+
+            criteriaY += entryHeight;
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
@@ -775,6 +843,7 @@ public class QuestEditorScreen extends Screen {
         TextFieldWidget nameField;
         ButtonWidget triggerButton;
         Map<String, TextFieldWidget> dynamicFields = new HashMap<>();
+        ButtonWidget removeButton;
     }
 
     private static class TriggerField {

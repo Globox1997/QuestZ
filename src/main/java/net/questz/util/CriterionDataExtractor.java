@@ -2,8 +2,11 @@ package net.questz.util;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.advancement.AdvancementCriterion;
+import net.minecraft.advancement.criterion.CriterionConditions;
+import net.questz.access.CriterionAccess;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,21 +14,47 @@ import java.util.Map;
 public class CriterionDataExtractor {
 
     public static JsonObject toJson(AdvancementCriterion<?> criterion) {
-        try {
-            var encoded = AdvancementCriterion.CODEC.encodeStart(JsonOps.INSTANCE, criterion);
+        var player = net.minecraft.client.MinecraftClient.getInstance().player;
+        if (player == null) return new JsonObject();
 
-            if (encoded.result().isPresent()) {
-                JsonElement element = encoded.result().get();
-                if (element.isJsonObject()) {
-                    return element.getAsJsonObject();
-                }
+        var registryManager = player.getRegistryManager();
+        var ops = registryManager.getOps(JsonOps.INSTANCE);
+
+        JsonObject result = new JsonObject();
+
+        try {
+            var encoded = AdvancementCriterion.CODEC.encodeStart(ops, criterion);
+            if (encoded.result().isPresent() && encoded.result().get().isJsonObject()) {
+                return encoded.result().get().getAsJsonObject();
             }
         } catch (Exception e) {
-            System.err.println("Error serializing criterion: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Standard codec failed: " + e.getMessage());
         }
 
-        return new JsonObject();
+        try {
+            CriterionAccess access = (CriterionAccess) (Object) criterion;
+            result.addProperty("trigger", access.questz$getTriggerId().toString());
+
+            JsonElement conditionsJson = encodeConditionsHelper(criterion, ops);
+            result.add("conditions", conditionsJson);
+
+        } catch (Exception e) {
+            System.err.println("Manual serialization failed: " + e.getMessage());
+            result.add("conditions", new JsonObject());
+        }
+
+        return result;
+    }
+
+    private static <T extends CriterionConditions> JsonElement encodeConditionsHelper(
+            AdvancementCriterion<T> criterion,
+            com.mojang.serialization.DynamicOps<JsonElement> ops
+    ) {
+        Codec<T> codec = criterion.trigger().getConditionsCodec();
+        T conditions = criterion.conditions();
+
+        return codec.encodeStart(ops, conditions)
+                .getOrThrow(err -> new RuntimeException("Codec error: " + err));
     }
 
     public static Map<String, String> extractConditionData(JsonObject json) {
@@ -37,24 +66,12 @@ public class CriterionDataExtractor {
 
         JsonObject conditions = json.getAsJsonObject("conditions");
 
-        // ========================================
-        // CUSTOM TRIGGER FIELDS (Questz)
-        // Diese müssen ZUERST geprüft werden!
-        // ========================================
-        // Direkte Felder wie in questz:craft_item_count, questz:placed_block_count, etc.
-        extractStringField(conditions, data, "object");  // Das Item/Block für Custom-Triggers
+        extractStringField(conditions, data, "object");
 
-        // Numerische Felder
-        extractNumericField(conditions, data, "count");  // Count für Custom-Triggers
-        extractNumericField(conditions, data, "amount"); // Amount (z.B. für XP)
+        extractNumericField(conditions, data, "count");
+        extractNumericField(conditions, data, "amount");
 
-        // ========================================
-        // VANILLA TRIGGER FIELDS
-        // ========================================
-
-        // Items field (für inventory_changed, consume_item, etc.)
-        // Nur extrahieren wenn KEIN "object" Feld existiert (Custom-Triggers haben "object")
-        if (!conditions.has("object") && conditions.has("items")) {
+        if (conditions.has("items")) {
             var items = conditions.get("items");
             if (items.isJsonArray()) {
                 StringBuilder sb = new StringBuilder();
@@ -85,7 +102,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Entity field (für player_killed_entity, player_hurt_entity, etc.)
         if (conditions.has("entity")) {
             var entity = conditions.getAsJsonObject("entity");
             if (entity.has("type")) {
@@ -93,7 +109,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Location fields
         if (conditions.has("location")) {
             var location = conditions.getAsJsonObject("location");
 
@@ -118,7 +133,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Item field (single item, für item_used_on_block, etc.)
         if (conditions.has("item")) {
             var item = conditions.getAsJsonObject("item");
             if (item.has("items")) {
@@ -131,7 +145,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Block field (für placed_block, enter_block, etc.)
         if (conditions.has("block")) {
             var block = conditions.get("block");
             if (block.isJsonPrimitive()) {
@@ -149,7 +162,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Dimension fields (für changed_dimension)
         if (conditions.has("from")) {
             data.put("from", conditions.get("from").getAsString());
         }
@@ -157,7 +169,6 @@ public class CriterionDataExtractor {
             data.put("to", conditions.get("to").getAsString());
         }
 
-        // Weitere numerische Felder (nur wenn sie noch nicht extrahiert wurden)
         if (!data.containsKey("distance")) {
             extractNumericField(conditions, data, "distance");
         }
@@ -168,18 +179,15 @@ public class CriterionDataExtractor {
         extractNumericField(conditions, data, "unique_entity_types");
         extractNumericField(conditions, data, "victims");
 
-        // Entity subtypes (für bred_animals)
         extractEntityType(conditions, data, "child", "child");
         extractEntityType(conditions, data, "parent", "parent");
         extractEntityType(conditions, data, "villager", "villager");
 
-        // String fields
         extractStringField(conditions, data, "recipe");
         extractStringField(conditions, data, "loot_table");
         extractStringField(conditions, data, "effect");
         extractStringField(conditions, data, "potion");
 
-        // Damage source entity
         if (conditions.has("damage")) {
             var damage = conditions.getAsJsonObject("damage");
             if (damage.has("source_entity")) {
@@ -190,7 +198,6 @@ public class CriterionDataExtractor {
             }
         }
 
-        // Lightning
         extractEntityType(conditions, data, "lightning", "lightning");
 
         return data;
