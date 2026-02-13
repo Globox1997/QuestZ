@@ -21,6 +21,8 @@
     "gui.questz.reward": "Reward:",
     "gui.questz.criteria": "Criteria",
     "gui.questz.addCriteria": "+ Add Criteria",
+    "gui.questz.criteriaName": "Criteria Name",
+    "gui.questz.scroll": "(Scroll to see more)",
 
     "text.autoconfig.questz.title": "QuestZ Config",
     "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",

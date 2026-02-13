@@ -15,6 +15,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.questz.access.CriterionAccess;
 import net.questz.access.RewardAccess;
@@ -169,7 +170,7 @@ public class QuestEditorScreen extends Screen {
         int leftY = y;
 
         this.titleField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.translatable("gui.questz.title"));
-        this.titleField.setPlaceholder(Text.translatable("gui.questz.example"));
+        this.titleField.setPlaceholder(Text.translatable("gui.questz.example").formatted(Formatting.DARK_GRAY));
         if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
             this.titleField.setText(this.placedAdvancement.getAdvancement().display().get().getTitle().getString());
         }
@@ -177,7 +178,7 @@ public class QuestEditorScreen extends Screen {
         leftY += 32;
 
         this.descField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 60);
-        this.descField.setPlaceholder(Text.translatable("gui.questz.example"));
+        this.descField.setPlaceholder(Text.translatable("gui.questz.example").formatted(Formatting.DARK_GRAY));
 
         if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
             this.descField.setText(this.placedAdvancement.getAdvancement().display().get().getDescription().getString());
@@ -186,7 +187,7 @@ public class QuestEditorScreen extends Screen {
         leftY += 72;
 
         this.iconField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.translatable("gui.questz.icon"));
-        this.iconField.setPlaceholder(Text.literal("minecraft:stone"));
+        this.iconField.setPlaceholder(Text.literal("minecraft:stone").formatted(Formatting.DARK_GRAY));
         if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
             this.iconField.setText(Registries.ITEM.getId(this.placedAdvancement.getAdvancement().display().get().getIcon().getItem()).toString());
         }
@@ -206,7 +207,7 @@ public class QuestEditorScreen extends Screen {
         leftY += 32;
 
         this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
-        this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond"));
+        this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond").formatted(Formatting.DARK_GRAY));
         if (!loadedCommands.isEmpty()) {
             this.commandsField.setText(loadedCommands);
         }
@@ -214,7 +215,7 @@ public class QuestEditorScreen extends Screen {
         leftY += 32;
 
         this.itemsField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 40);
-        this.itemsField.setPlaceholder(Text.literal("minecraft:diamond:5, minecraft:iron_ingot:10"));
+        this.itemsField.setPlaceholder(Text.literal("minecraft:diamond:5, minecraft:iron_ingot:10").formatted(Formatting.DARK_GRAY));
         if (!loadedItems.isEmpty()) {
             this.itemsField.setText(loadedItems);
         }
@@ -222,7 +223,7 @@ public class QuestEditorScreen extends Screen {
         leftY += 52;
 
         this.textField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Reward Text"));
-        this.textField.setPlaceholder(Text.literal("Congratulations!"));
+        this.textField.setPlaceholder(Text.literal("Congratulations!").formatted(Formatting.DARK_GRAY));
         if (!loadedText.isEmpty()) {
             this.textField.setText(loadedText);
         }
@@ -259,7 +260,7 @@ public class QuestEditorScreen extends Screen {
             this.saveAndSend();
         }).dimensions(leftX, leftY, leftColumnWidth, 20).build());
 
-        this.addCriteriaButton = ButtonWidget.builder(Text.literal("+ Add Criteria"), (button) -> {
+        this.addCriteriaButton = ButtonWidget.builder(Text.translatable("gui.questz.addCriteria"), (button) -> {
             this.addCriteriaEntry();
         }).dimensions(rightX, y, rightColumnWidth, 20).build();
         this.addDrawableChild(this.addCriteriaButton);
@@ -376,8 +377,8 @@ public class QuestEditorScreen extends Screen {
     private int renderCriteriaEntry(CriteriaEntry entry, int rightX, int rightColumnWidth, int startY) {
         int currentY = startY + 5;
 
-        entry.nameField = new TextFieldWidget(this.textRenderer, rightX, currentY, 200, 20, Text.literal("Criteria Name"));
-        entry.nameField.setPlaceholder(Text.literal("criteria_name"));
+        entry.nameField = new TextFieldWidget(this.textRenderer, rightX, currentY, 200, 20, Text.translatable("gui.questz.criteriaName"));
+        entry.nameField.setPlaceholder(Text.literal("criteria_name").formatted(Formatting.DARK_GRAY));
         entry.nameField.setText(entry.name);
         entry.nameField.setChangedListener(text -> entry.name = text);
         this.addSelectableChild(entry.nameField);
@@ -406,7 +407,7 @@ public class QuestEditorScreen extends Screen {
                     20,
                     Text.literal(field.name)
             );
-            fieldWidget.setPlaceholder(Text.literal(field.placeholder));
+            fieldWidget.setPlaceholder(Text.literal(field.placeholder).formatted(Formatting.DARK_GRAY));
 
             String currentValue = entry.fieldValues.getOrDefault(field.key, field.defaultValue);
             fieldWidget.setText(currentValue);
@@ -474,7 +475,7 @@ public class QuestEditorScreen extends Screen {
             renderParentSelectionList(context, mouseX, mouseY);
         }
 
-        context.drawTextWithShadow(this.textRenderer, Text.literal("§lCriteria"), rightX, y - 10, 0xFFFFFF);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.criteria"), rightX, y - 10, 0xFFFFFF);
 
         if (!criteriaEntries.isEmpty()) {
             int visibleCount = Math.min(criteriaEntries.size() - scrollOffset, MAX_VISIBLE_CRITERIA);
@@ -482,10 +483,10 @@ public class QuestEditorScreen extends Screen {
                     scrollOffset + 1,
                     scrollOffset + visibleCount,
                     criteriaEntries.size());
-            context.drawTextWithShadow(this.textRenderer, Text.literal(scrollHint), rightX + 150, y - 10, 0x808080);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(scrollHint), rightX + 130, y - 10, 0x808080);
 
             if (criteriaEntries.size() > MAX_VISIBLE_CRITERIA) {
-                context.drawTextWithShadow(this.textRenderer, Text.literal("(Scroll to see more)"), rightX + 150, y + 2, 0x606060);
+                context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.scroll"), rightX + 132+ this.textRenderer.getWidth(scrollHint), y -10, 0x606060);
             }
         }
 
