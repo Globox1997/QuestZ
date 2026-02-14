@@ -9,8 +9,9 @@
     "Globox_Z"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/questz",
+    "sources": "https://github.com/Globox1997/QuestZ",
+    "issues": "https://github.com/Globox1997/QuestZ/issues"
   },
   "license": "MIT",
   "icon": "assets/questz/icon.png",
