@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.text.TextCodecs;
 import net.minecraft.util.Identifier;
+import net.questz.QuestzMain;
 import net.questz.access.DisplayAccess;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;

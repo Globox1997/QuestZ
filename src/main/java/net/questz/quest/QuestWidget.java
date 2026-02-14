@@ -49,8 +49,8 @@ public class QuestWidget extends AdvancementWidget {
     private final List<QuestWidget> children = Lists.newArrayList();
     @Nullable
     private AdvancementProgress progress;
-    private final int x;
-    private final int y;
+    private int x;
+    private int y;
 
     public QuestWidget(QuestTab tab, MinecraftClient client, PlacedAdvancement advancement, AdvancementDisplay display) {
         super(tab, client, advancement, display);
@@ -334,6 +334,24 @@ public class QuestWidget extends AdvancementWidget {
 
     public PlacedAdvancement getAdvancement() {
         return this.advancement;
+    }
+
+    public void updatePosition(float x, float y) {
+//        if (this.getAdvancement().getAdvancement().display().isPresent()) {
+//            AdvancementDisplay display = this.getAdvancement().getAdvancement().display().get();
+//            display.setPos(x, y);
+//
+//            this.x = (int)display.getX();
+//            this.y = (int)display.getY();
+//        }
+        if (this.getAdvancement().getAdvancement().display().isPresent()) {
+            AdvancementDisplay display = this.getAdvancement().getAdvancement().display().get();
+
+            display.setPos(x, y);
+
+            this.x = (int) (display.getX() * 28);
+            this.y = (int) (display.getY() * 28);
+        }
     }
 
     private void buildDescription() {

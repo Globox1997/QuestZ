@@ -296,4 +296,17 @@ public class QuestTab extends AdvancementTab {
         return hoveredWidget;
     }
 
+    public void updateWidgetPosition(QuestWidget widget) {
+        if (widget == null || widget.getAdvancement().getAdvancement().display().isEmpty()) {
+            return;
+        }
+
+        AdvancementDisplay display = widget.getAdvancement().getAdvancement().display().get();
+
+        widget.updatePosition(display.getX(), display.getY());
+
+        // Optional: Aktualisiere die Tab-Bounds falls nötig
+        // updateTabBounds();
+    }
+
 }

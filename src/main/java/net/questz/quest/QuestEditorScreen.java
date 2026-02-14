@@ -6,6 +6,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.advancement.AdvancementCriterion;
+import net.minecraft.advancement.AdvancementDisplay;
 import net.minecraft.advancement.AdvancementRewards;
 import net.minecraft.advancement.PlacedAdvancement;
 import net.minecraft.client.font.TextRenderer;
@@ -32,6 +33,11 @@ public class QuestEditorScreen extends Screen {
 
     @Nullable
     private final PlacedAdvancement placedAdvancement;
+
+    private TextFieldWidget positionXField;
+    private TextFieldWidget positionYField;
+    private final float initialX;
+    private final float initialY;
 
     private TextFieldWidget titleField;
     private MultilineTextFieldWidget descField;
@@ -65,14 +71,26 @@ public class QuestEditorScreen extends Screen {
     private String loadedItems = "";
     private String loadedText = "";
 
-    public QuestEditorScreen(@Nullable QuestWidget questWidget) {
-        super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ?
-                questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
+    public QuestEditorScreen(@Nullable QuestWidget questWidget, float clickX, float clickY) {
+        super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ? questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
+
+        if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
+            AdvancementDisplay display = this.placedAdvancement.getAdvancement().display().get();
+            this.initialX = display.getX();
+            this.initialY = display.getY();
+        } else {
+            this.initialX = clickX;
+            this.initialY = clickY;
+        }
 
         if (this.placedAdvancement != null) {
             loadExistingAdvancementData();
         }
+    }
+
+    public QuestEditorScreen(@Nullable QuestWidget questWidget) {
+        this(questWidget, 0, 0);
     }
 
     private void loadExistingAdvancementData() {
@@ -207,6 +225,18 @@ public class QuestEditorScreen extends Screen {
 
         leftY += 32;
 
+        int posFieldWidth = (leftColumnWidth - 5) / 2;
+        this.positionXField = new TextFieldWidget(this.textRenderer, leftX, leftY, posFieldWidth, 20, Text.literal("Position X"));
+        this.positionXField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
+        this.positionXField.setText(String.format("%.2f", this.initialX));
+        this.addSelectableChild(this.positionXField);
+
+        this.positionYField = new TextFieldWidget(this.textRenderer, leftX + posFieldWidth + 5, leftY, posFieldWidth, 20, Text.literal("Position Y"));
+        this.positionYField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
+        this.positionYField.setText(String.format("%.2f", this.initialY));
+        this.addSelectableChild(this.positionYField);
+        leftY += 32;
+
         this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
         this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond").formatted(Formatting.DARK_GRAY));
         if (!loadedCommands.isEmpty()) {
@@ -324,12 +354,14 @@ public class QuestEditorScreen extends Screen {
         this.addSelectableChild(this.descField);
         this.addSelectableChild(this.iconField);
         this.addSelectableChild(this.parentField);
+        this.addSelectableChild(this.positionXField);
+        this.addSelectableChild(this.positionYField);
         this.addSelectableChild(this.commandsField);
         this.addSelectableChild(this.itemsField);
         this.addSelectableChild(this.textField);
         this.addDrawableChild(this.frameButton);
 
-        int toggleY = y + 32 + 72 + 32 + 32 + 32 + 52 + 32 + 25;
+        int toggleY = y + 32 + 72 + 32 + 32 + 32 + 32 + 52 + 32 + 25;
         int btnWidth = (leftColumnWidth - 4) / 3;
 
         this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.toast", showToast), (btn) -> {
@@ -461,14 +493,17 @@ public class QuestEditorScreen extends Screen {
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.description"), leftX, y + 22, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.icon"), leftX, y + 94, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.parent"), leftX, y + 126, 0xA0A0A0);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.commands"), leftX, y + 158, 0xA0A0A0);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.items"), leftX, y + 190, 0xA0A0A0);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.text"), leftX, y + 242, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.position"), leftX, y + 158, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.commands"), leftX, y + 190, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.items"), leftX, y + 222, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.text"), leftX, y + 274, 0xA0A0A0);
 
         this.titleField.render(context, mouseX, mouseY, delta);
         this.descField.render(context, mouseX, mouseY, delta);
         this.iconField.render(context, mouseX, mouseY, delta);
         this.parentField.render(context, mouseX, mouseY, delta);
+        this.positionXField.render(context, mouseX, mouseY, delta);
+        this.positionYField.render(context, mouseX, mouseY, delta);
         this.commandsField.render(context, mouseX, mouseY, delta);
         this.itemsField.render(context, mouseX, mouseY, delta);
         this.textField.render(context, mouseX, mouseY, delta);
@@ -685,6 +720,16 @@ public class QuestEditorScreen extends Screen {
         display.put("show_toast", this.showToast);
         display.put("announce_to_chat", this.announceChat);
         display.put("hidden", this.isHidden);
+
+        try {
+            float posX = Float.parseFloat(this.positionXField.getText());
+            float posY = Float.parseFloat(this.positionYField.getText());
+            display.put("manual_x", posX);
+            display.put("manual_y", posY);
+        } catch (NumberFormatException e) {
+            display.put("manual_x", this.initialX);
+            display.put("manual_y", this.initialY);
+        }
 
         advancement.put("display", display);
 

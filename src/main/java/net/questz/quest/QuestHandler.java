@@ -1,21 +1,21 @@
 package net.questz.quest;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.WorldSavePath;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.questz.QuestzMain;
 
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 
 public class QuestHandler {
 
-    public static final Logger LOGGER = LoggerFactory.getLogger("questz");
-
-    public static void handleAdvancementCreation(MinecraftServer server, String jsonContent, String fileName) {
+    public static void createAdvancement(MinecraftServer server, String jsonContent, String fileName) {
         Path datapackPath = server.getSavePath(WorldSavePath.ROOT).resolve("datapacks/questz_generated");
         Path advancementPath = datapackPath.resolve("data/questz/advancement/quests/" + fileName + ".json");
 
@@ -35,6 +35,31 @@ public class QuestHandler {
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void updateAdvancementPosition(MinecraftServer server, Identifier advancementId, float x, float y) {
+        try {
+            System.out.println(advancementId.getPath());
+
+            Path datapackPath = server.getSavePath(WorldSavePath.ROOT).resolve("datapacks/questz_generated");
+            Path advancementPath = datapackPath.resolve("data/questz/advancement/" + advancementId.getPath() + ".json");
+
+            JsonObject json = JsonParser.parseReader(Files.newBufferedReader(advancementPath)).getAsJsonObject();
+
+            if (json.has("display")) {
+                JsonObject display = json.getAsJsonObject("display");
+                display.addProperty("x_manual", x);
+                display.addProperty("y_manual", y);
+            }
+
+            try (Writer writer = Files.newBufferedWriter(advancementPath)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(json, writer);
+            }
+
+            QuestzMain.LOGGER.info("Saved position to file: {}", advancementPath);
+        } catch (Exception e) {
+            QuestzMain.LOGGER.error("Failed to save position to file", e);
         }
     }
 

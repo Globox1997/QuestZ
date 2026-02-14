@@ -4,6 +4,8 @@ import com.google.common.collect.Maps;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.advancement.AdvancementDisplay;
 import net.minecraft.advancement.AdvancementEntry;
 import net.minecraft.advancement.AdvancementProgress;
 import net.minecraft.advancement.PlacedAdvancement;
@@ -23,7 +25,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.questz.QuestzMain;
+import net.questz.access.DisplayAccess;
 import net.questz.init.KeyInit;
+import net.questz.network.packet.QuestPositionPacket;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
@@ -44,7 +48,12 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     private boolean creationMode = false;
 
-    public QuestScreen(ClientAdvancementManager advancementHandler,boolean creationMode) {
+    private QuestWidget draggedWidget = null;
+    private float dragWidgetX = 0;
+    private float dragWidgetY = 0;
+    private boolean isDraggingAdvancement = false;
+
+    public QuestScreen(ClientAdvancementManager advancementHandler, boolean creationMode) {
         this(advancementHandler, null);
         this.creationMode = creationMode;
     }
@@ -87,7 +96,6 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void close() {
-//        this.client.setScreen(this.parent);
         this.client.setScreen(null);
     }
 
@@ -102,10 +110,10 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            int i = (this.width - 256) / 2;
-            int j = (this.height - 206) / 2;
+        int i = (this.width - 256) / 2;
+        int j = (this.height - 206) / 2;
 
+        if (button == 0) {
             for (QuestTab advancementTab : this.tabs.values()) {
                 if (advancementTab.isClickOnTab(i, j, mouseX, mouseY)) {
                     this.advancementHandler.selectTab(advancementTab.getRoot().getAdvancementEntry(), true);
@@ -118,66 +126,118 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                 this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
+
+            if (this.creationMode && this.selectedTab != null) {
+                QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
+                if (clickedWidget != null) {
+                    this.draggedWidget = clickedWidget;
+
+                    if (clickedWidget.getAdvancement().getAdvancement().display().isPresent()) {
+                        AdvancementDisplay display = clickedWidget.getAdvancement().getAdvancement().display().get();
+                        this.dragWidgetX = display.getX();
+                        this.dragWidgetY = display.getY();
+                    }
+
+                    this.isDraggingAdvancement = true;
+                    this.movingTab = false;
+
+                    this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 0.5F));
+                    return true;
+                }
+            }
         }
-        if (button == 1 && this.creationMode) {
+
+        if (isPointWithinBounds(i + 9, j + 18, 238, 179, mouseX, mouseY) && button == 1 && this.creationMode) {
             this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-            this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null));
+
+            int screenX = (this.width - 256) / 2;
+            int screenY = (this.height - 206) / 2;
+
+            float clickX = 0;
+            float clickY = 0;
+
+            if (this.selectedTab != null) {
+                float scale = this.selectedTab.getTabScale();
+                double tabMouseX = mouseX - (screenX + 9);
+                double tabMouseY = mouseY - (screenY + 18);
+
+                clickX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
+                clickY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
+            }
+            System.out.println("OPN: " + clickX + " : " + clickY + " : " + mouseX + " : " + mouseY);
+
+            this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null, clickX, clickY));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    public static boolean isPointWithinBounds(int x, int y, int width, int height, double pointX, double pointY) {
-        return pointX >= (double) (x - 1) && pointX < (double) (x + width + 1) && pointY >= (double) (y - 1) && pointY < (double) (y + height + 1);
-    }
-
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (KeyInit.screenKey.matchesKey(keyCode, scanCode) || this.client.options.inventoryKey.matchesKey(keyCode, scanCode)) {
-            this.client.setScreen(null);
-            this.client.mouse.lockCursor();
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && this.isDraggingAdvancement) {
+            this.isDraggingAdvancement = false;
+
+            if (this.draggedWidget != null) {
+                this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_STONE_PLACE, 0.3F));
+
+                if (this.selectedTab != null) {
+                    this.selectedTab.updateWidgetPosition(this.draggedWidget);
+                }
+
+                ClientPlayNetworking.send(new QuestPositionPacket(this.draggedWidget.getAdvancement().getAdvancementEntry().id(), (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getX(), (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getY()));
+            }
+
+            this.draggedWidget = null;
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
 
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
-
-//        for (Drawable drawable : this.drawables) {
-//            drawable.render(context, mouseX, mouseY, delta);
-//        }
-
-        int i = (this.width - 256) / 2;
-        int j = (this.height - 206) / 2;
-        this.drawAdvancementTree(context, mouseX, mouseY, i, j);
-        this.drawWindow(context, i, j);
-        this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
-
-        if (this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
-            context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.creationMode ? 0 : 16, 0, 16, 16, 32, 16);
-        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (button != 0) {
             this.movingTab = false;
+            this.isDraggingAdvancement = false;
             return false;
-        } else {
-            if (!this.movingTab) {
-                this.movingTab = true;
-            } else if (this.selectedTab != null) {
+        }
+
+        if (this.isDraggingAdvancement && this.draggedWidget != null && this.creationMode) {
+            if (this.selectedTab != null) {
                 float scale = this.selectedTab.getTabScale();
 
-                double correctedDeltaX = deltaX / scale;
-                double correctedDeltaY = deltaY / scale;
-                this.selectedTab.move(correctedDeltaX, correctedDeltaY);
-            }
+                double unitFactor = 28.0;
 
+                double correctedDeltaX = (deltaX / scale) / unitFactor;
+                double correctedDeltaY = (deltaY / scale) / unitFactor;
+
+                this.dragWidgetX += (float) correctedDeltaX;
+                this.dragWidgetY += (float) correctedDeltaY;
+
+                if (this.draggedWidget.getAdvancement().getAdvancement().display().isPresent()) {
+                    AdvancementDisplay display = this.draggedWidget.getAdvancement().getAdvancement().display().get();
+
+                    if (display instanceof DisplayAccess access) {
+                        access.setManualPosition(this.dragWidgetX, this.dragWidgetY);
+                    } else {
+                        display.setPos(this.dragWidgetX, this.dragWidgetY);
+                    }
+                    this.draggedWidget.updatePosition(this.dragWidgetX, this.dragWidgetY);
+                }
+            }
             return true;
         }
+
+        if (!this.movingTab) {
+            this.movingTab = true;
+        } else if (this.selectedTab != null && !this.isDraggingAdvancement) {
+            float scale = this.selectedTab.getTabScale();
+            double correctedDeltaX = deltaX / scale;
+            double correctedDeltaY = deltaY / scale;
+            this.selectedTab.move(correctedDeltaX, correctedDeltaY);
+        }
+
+        return true;
     }
 
     @Override
@@ -205,15 +265,73 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         return true;
     }
 
+    private static boolean isPointWithinBounds(int x, int y, int width, int height, double pointX, double pointY) {
+        return pointX >= (double) (x - 1) && pointX < (double) (x + width + 1) && pointY >= (double) (y - 1) && pointY < (double) (y + height + 1);
+    }
+
+    private QuestWidget getWidgetAtMouse(double mouseX, double mouseY) {
+        if (this.selectedTab == null) {
+            return null;
+        }
+        return this.selectedTab.getHoveredWidget();
+    }
+
+    private void renderDragFeedback(DrawContext context, int mouseX, int mouseY) {
+        int screenX = (this.width - 256) / 2;
+        int screenY = (this.height - 206) / 2;
+
+        if (this.selectedTab != null && this.draggedWidget != null) {
+            float scale = this.selectedTab.getTabScale();
+            double tabMouseX = mouseX - (screenX + 9);
+            double tabMouseY = mouseY - (screenY + 18);
+
+            float gridX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
+            float gridY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
+
+            String coordText = String.format("X: %.2f, Y: %.2f", gridX, gridY);
+            context.getMatrices().push();
+            context.getMatrices().translate(0f, 0f, 500f);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(coordText), (int) mouseX + 10, (int) mouseY - 20, 0xFFFFFF);
+
+            int crossSize = 5;
+            context.fill((int) mouseX - crossSize, (int) mouseY, (int) mouseX + crossSize, (int) mouseY + 1, 0x88FFFFFF);
+            context.fill((int) mouseX, (int) mouseY - crossSize, (int) mouseX + 1, (int) mouseY + crossSize, 0x88FFFFFF);
+            context.getMatrices().pop();
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (KeyInit.screenKey.matchesKey(keyCode, scanCode) || this.client.options.inventoryKey.matchesKey(keyCode, scanCode)) {
+            this.client.setScreen(null);
+            this.client.mouse.lockCursor();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        this.renderBackground(context, mouseX, mouseY, delta);
+
+        int i = (this.width - 256) / 2;
+        int j = (this.height - 206) / 2;
+        this.drawAdvancementTree(context, mouseX, mouseY, i, j);
+        this.drawWindow(context, i, j);
+        this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
+
+        if (this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
+            context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.creationMode ? 0 : 16, 0, 16, 16, 32, 16);
+        }
+
+        if (this.isDraggingAdvancement && this.draggedWidget != null && this.creationMode) {
+            renderDragFeedback(context, mouseX, mouseY);
+        }
+    }
+
     private void drawAdvancementTree(DrawContext context, int mouseX, int mouseY, int x, int y) {
         QuestTab advancementTab = this.selectedTab;
-//        System.out.println("TT");
-        if (advancementTab == null) {
-//            context.fill(x + 9, y + 18, x + 9 + 234, y + 18 + 113, Colors.BLACK);
-//            int i = x + 9 + 117;
-//            context.drawCenteredTextWithShadow(this.textRenderer, EMPTY_TEXT, i, y + 18 + 56 - 9 / 2, Colors.WHITE);
-//            context.drawCenteredTextWithShadow(this.textRenderer, SAD_LABEL_TEXT, i, y + 18 + 113 - 9, Colors.WHITE);
-        } else {
+        if (advancementTab != null) {
             advancementTab.render(context, x + 9, y + 18);
         }
     }
@@ -309,4 +427,3 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         return this.tabs.get(placedAdvancement.getAdvancementEntry());
     }
 }
-
