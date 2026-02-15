@@ -97,7 +97,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void close() {
-        this.client.setScreen(null);
+        this.client.setScreen(this.parent);
     }
 
     @Override
@@ -165,7 +165,6 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                 clickX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
                 clickY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
             }
-            System.out.println("OPN: " + clickX + " : " + clickY + " : " + mouseX + " : " + mouseY);
 
             this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null, clickX, clickY));
             return true;
@@ -281,28 +280,25 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     }
 
     private void renderDragFeedback(DrawContext context, int mouseX, int mouseY) {
-        int screenX = (this.width - 256) / 2;
-        int screenY = (this.height - 206) / 2;
-
         if (this.selectedTab != null && this.draggedWidget != null) {
-            float scale = this.selectedTab.getTabScale();
-            double tabMouseX = mouseX - (screenX + 9);
-            double tabMouseY = mouseY - (screenY + 18);
+            int actualX = 0;
+            int actualY = 0;
 
-            float gridX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
-            float gridY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
+            if (this.draggedWidget.getAdvancement().getAdvancement().display().isPresent()) {
+                AdvancementDisplay display = this.draggedWidget.getAdvancement().getAdvancement().display().get();
+                actualX = (int) display.getX();
+                actualY = (int) display.getY();
+            }
 
-            int roundedX = Math.round(gridX);
-            int roundedY = Math.round(gridY);
-            String coordText = String.format("X: %d, Y: %d", roundedX, roundedY);
+            String coordText = String.format("X: %d, Y: %d", actualX, actualY);
 
             context.getMatrices().push();
             context.getMatrices().translate(0f, 0f, 500f);
-            context.drawTextWithShadow(this.textRenderer, Text.literal(coordText), (int) mouseX + 10, (int) mouseY - 20, 0xFFFFFF);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(coordText), mouseX + 10, mouseY - 20, 0xFFFFFF);
 
             int crossSize = 5;
-            context.fill((int) mouseX - crossSize, (int) mouseY, (int) mouseX + crossSize, (int) mouseY + 1, 0x88FFFFFF);
-            context.fill((int) mouseX, (int) mouseY - crossSize, (int) mouseX + 1, (int) mouseY + crossSize, 0x88FFFFFF);
+            context.fill(mouseX - crossSize, mouseY, mouseX + crossSize, mouseY + 1, 0x88FFFFFF);
+            context.fill(mouseX, mouseY - crossSize, mouseX + 1, mouseY + crossSize, 0x88FFFFFF);
             context.getMatrices().pop();
         }
     }
@@ -325,8 +321,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         int j = (this.height - 206) / 2;
         this.drawAdvancementTree(context, mouseX, mouseY, i, j);
         this.drawWindow(context, i, j);
-        this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
-
+        if (this.draggedWidget == null) {
+            this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
+        }
         if (this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
             context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.creationMode ? 0 : 16, 0, 16, 16, 32, 16);
         }
