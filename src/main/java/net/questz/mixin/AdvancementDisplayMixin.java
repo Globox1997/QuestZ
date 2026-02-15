@@ -27,10 +27,10 @@ import java.util.function.Function;
 public class AdvancementDisplayMixin implements DisplayAccess {
 
     @Unique
-    private float manualX = 0.0F;
+    private int manualX = 0;
 
     @Unique
-    private float manualY = 0.0F;
+    private int manualY = 0;
 
     @Shadow
     private float x;
@@ -38,7 +38,7 @@ public class AdvancementDisplayMixin implements DisplayAccess {
     private float y;
 
     @Override
-    public void setManualPosition(float x, float y) {
+    public void setManualPosition(int x, int y) {
         this.manualX = x;
         this.manualY = y;
 
@@ -46,18 +46,18 @@ public class AdvancementDisplayMixin implements DisplayAccess {
     }
 
     @Override
-    public float getManualX() {
+    public int getManualX() {
         return this.manualX;
     }
 
     @Override
-    public float getManualY() {
+    public int getManualY() {
         return this.manualY;
     }
 
     @Inject(method = "setPos", at = @At("HEAD"), cancellable = true)
     private void onSetPosMixin(float x, float y, CallbackInfo info) {
-        if ((this.manualX > 0.001F || this.manualX < -0.001F) && (this.manualY > 0.001F || this.manualY < -0.001F)) {
+        if (this.manualX != 0 || this.manualY != 0) {
             this.x = this.manualX;
             this.y = this.manualY;
             info.cancel();
@@ -70,8 +70,8 @@ public class AdvancementDisplayMixin implements DisplayAccess {
                 ItemStack.VALIDATED_CODEC.fieldOf("icon").forGetter(AdvancementDisplay::getIcon),
                 TextCodecs.CODEC.fieldOf("title").forGetter(AdvancementDisplay::getTitle),
                 TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
-                Codec.FLOAT.optionalFieldOf("x_manual").forGetter(d -> Optional.empty()),
-                Codec.FLOAT.optionalFieldOf("y_manual").forGetter(d -> Optional.empty()),
+                Codec.INT.optionalFieldOf("x_manual").forGetter(d -> Optional.empty()),
+                Codec.INT.optionalFieldOf("y_manual").forGetter(d -> Optional.empty()),
                 Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
                 AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
                 Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
@@ -88,17 +88,17 @@ public class AdvancementDisplayMixin implements DisplayAccess {
 
     @Inject(method = "toPacket", at = @At("TAIL"))
     private void toPacketMixin(RegistryByteBuf buf, CallbackInfo info) {
-        buf.writeFloat(this.manualX);
-        buf.writeFloat(this.manualY);
+        buf.writeInt(this.manualX);
+        buf.writeInt(this.manualY);
     }
 
     @Inject(method = "fromPacket", at = @At("RETURN"))
     private static void fromPacketMixin(RegistryByteBuf buf, CallbackInfoReturnable<AdvancementDisplay> info) {
         if (info.getReturnValue() instanceof DisplayAccess displayAccess) {
-            float manualX = buf.readFloat();
-            float manualY = buf.readFloat();
+            int manualX = buf.readInt();
+            int manualY = buf.readInt();
 
-            if ((manualX > 0.001F || manualX < -0.001F) && (manualY > 0.001F || manualY < -0.001F)) {
+            if (manualX != 0 || manualY != 0) {
                 displayAccess.setManualPosition(manualX, manualY);
             }
         }

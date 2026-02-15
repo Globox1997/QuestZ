@@ -215,15 +215,18 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                 this.dragWidgetX += (float) correctedDeltaX;
                 this.dragWidgetY += (float) correctedDeltaY;
 
+                int gridX = Math.round(this.dragWidgetX);
+                int gridY = Math.round(this.dragWidgetY);
+
                 if (this.draggedWidget.getAdvancement().getAdvancement().display().isPresent()) {
                     AdvancementDisplay display = this.draggedWidget.getAdvancement().getAdvancement().display().get();
 
                     if (display instanceof DisplayAccess access) {
-                        access.setManualPosition(this.dragWidgetX, this.dragWidgetY);
+                        access.setManualPosition(gridX, gridY);
                     } else {
-                        display.setPos(this.dragWidgetX, this.dragWidgetY);
+                        display.setPos(gridX, gridY);
                     }
-                    this.draggedWidget.updatePosition(this.dragWidgetX, this.dragWidgetY);
+                    this.draggedWidget.updatePosition(gridX, gridY);
                 }
             }
             return true;
@@ -289,7 +292,10 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             float gridX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
             float gridY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
 
-            String coordText = String.format("X: %.2f, Y: %.2f", gridX, gridY);
+            int roundedX = Math.round(gridX);
+            int roundedY = Math.round(gridY);
+            String coordText = String.format("X: %d, Y: %d", roundedX, roundedY);
+
             context.getMatrices().push();
             context.getMatrices().translate(0f, 0f, 500f);
             context.drawTextWithShadow(this.textRenderer, Text.literal(coordText), (int) mouseX + 10, (int) mouseY - 20, 0xFFFFFF);

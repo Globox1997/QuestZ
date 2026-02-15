@@ -2,10 +2,10 @@ package net.questz.access;
 
 public interface DisplayAccess {
 
-    void setManualPosition(float x, float y);
+    void setManualPosition(int x, int y);
 
-    float getManualX();
+    int getManualX();
 
-    float getManualY();
+    int getManualY();
 
 }
