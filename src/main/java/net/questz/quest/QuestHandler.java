@@ -40,8 +40,6 @@ public class QuestHandler {
 
     public static void updateAdvancementPosition(MinecraftServer server, Identifier advancementId, float x, float y) {
         try {
-            System.out.println(advancementId.getPath());
-
             Path datapackPath = server.getSavePath(WorldSavePath.ROOT).resolve("datapacks/questz_generated");
             Path advancementPath = datapackPath.resolve("data/questz/advancement/" + advancementId.getPath() + ".json");
 

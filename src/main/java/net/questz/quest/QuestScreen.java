@@ -26,6 +26,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.questz.QuestzMain;
 import net.questz.access.DisplayAccess;
+import net.questz.init.ConfigInit;
 import net.questz.init.KeyInit;
 import net.questz.network.packet.QuestPositionPacket;
 import org.jetbrains.annotations.Nullable;
@@ -376,7 +377,13 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     public void onRootAdded(PlacedAdvancement root) {
         QuestTab advancementTab = QuestTab.create(this.client, this, this.tabs.size(), root);
         if (advancementTab != null) {
-            this.tabs.put(root.getAdvancementEntry(), advancementTab);
+            if (ConfigInit.CONFIG.questAdvancementNamespaceIds.contains(root.getAdvancementEntry().id().getNamespace())) {
+                this.tabs.put(root.getAdvancementEntry(), advancementTab);
+
+                if (this.selectedTab == null && this.tabs.size() == 1) {
+                    this.advancementHandler.selectTab(root.getAdvancementEntry(), true);
+                }
+            }
         }
     }
 
