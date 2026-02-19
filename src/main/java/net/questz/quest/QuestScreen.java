@@ -154,16 +154,18 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             int screenX = (this.width - 256) / 2;
             int screenY = (this.height - 206) / 2;
 
-            float clickX = 0;
-            float clickY = 0;
+            int clickX = 0;
+            int clickY = 0;
 
             if (this.selectedTab != null) {
+                double unitFactor = 28.0;
+
                 float scale = this.selectedTab.getTabScale();
                 double tabMouseX = mouseX - (screenX + 9);
                 double tabMouseY = mouseY - (screenY + 18);
 
-                clickX = (float) (tabMouseX / scale - this.selectedTab.getOriginX());
-                clickY = (float) (tabMouseY / scale - this.selectedTab.getOriginY());
+                clickX = (int) ((tabMouseX / scale - this.selectedTab.getOriginX()) / unitFactor);
+                clickY = (int) ((tabMouseY / scale - this.selectedTab.getOriginY()) / unitFactor);
             }
 
             this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null, clickX, clickY));

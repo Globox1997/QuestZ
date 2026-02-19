@@ -36,8 +36,8 @@ public class QuestEditorScreen extends Screen {
 
     private TextFieldWidget positionXField;
     private TextFieldWidget positionYField;
-    private final float initialX;
-    private final float initialY;
+    private final int initialX;
+    private final int initialY;
 
     private TextFieldWidget titleField;
     private MultilineTextFieldWidget descField;
@@ -71,14 +71,14 @@ public class QuestEditorScreen extends Screen {
     private String loadedItems = "";
     private String loadedText = "";
 
-    public QuestEditorScreen(@Nullable QuestWidget questWidget, float clickX, float clickY) {
+    public QuestEditorScreen(@Nullable QuestWidget questWidget, int clickX, int clickY) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ? questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
 
         if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
             AdvancementDisplay display = this.placedAdvancement.getAdvancement().display().get();
-            this.initialX = display.getX();
-            this.initialY = display.getY();
+            this.initialX = (int) display.getX();
+            this.initialY = (int) display.getY();
         } else {
             this.initialX = clickX;
             this.initialY = clickY;
@@ -228,12 +228,12 @@ public class QuestEditorScreen extends Screen {
         int posFieldWidth = (leftColumnWidth - 5) / 2;
         this.positionXField = new TextFieldWidget(this.textRenderer, leftX, leftY, posFieldWidth, 20, Text.literal("Position X"));
         this.positionXField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
-        this.positionXField.setText(String.format("%.2f", this.initialX));
+        this.positionXField.setText(String.valueOf(this.initialX));
         this.addSelectableChild(this.positionXField);
 
         this.positionYField = new TextFieldWidget(this.textRenderer, leftX + posFieldWidth + 5, leftY, posFieldWidth, 20, Text.literal("Position Y"));
         this.positionYField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
-        this.positionYField.setText(String.format("%.2f", this.initialY));
+        this.positionYField.setText(String.valueOf(this.initialY));
         this.addSelectableChild(this.positionYField);
         leftY += 32;
 
