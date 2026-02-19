@@ -71,6 +71,14 @@ public class QuestEditorScreen extends Screen {
     private String loadedItems = "";
     private String loadedText = "";
 
+    private String savedTitle = "";
+    private String savedDesc = "";
+    private String savedIcon = "";
+    private String savedParent = "";
+    private String savedCommands = "";
+    private String savedItems = "";
+    private String savedText = "";
+
     public QuestEditorScreen(@Nullable QuestWidget questWidget, int clickX, int clickY) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ? questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
@@ -104,11 +112,23 @@ public class QuestEditorScreen extends Screen {
             this.showToast = display.shouldShowToast();
             this.announceChat = display.shouldAnnounceToChat();
             this.isHidden = display.isHidden();
+
+            savedTitle = display.getTitle().getString();
+            savedDesc = display.getDescription().getString();
+            savedIcon = Registries.ITEM.getId(display.getIcon().getItem()).toString();
+        }
+
+        if (this.placedAdvancement.getParent() != null) {
+            savedParent = this.placedAdvancement.getParent().getAdvancementEntry().id().toString();
         }
 
         if (advancement.rewards() != null) {
             AdvancementRewards rewards = advancement.rewards();
             loadRewardsFromMixin(rewards);
+
+            savedCommands = loadedCommands;
+            savedItems = loadedItems;
+            savedText = loadedText;
         }
 
         loadCriteriaFromAdvancement();
@@ -178,6 +198,16 @@ public class QuestEditorScreen extends Screen {
 
     @Override
     protected void init() {
+        if (this.titleField != null) {
+            savedTitle = this.titleField.getText();
+            savedDesc = this.descField.getText();
+            savedIcon = this.iconField.getText();
+            savedParent = this.parentField.getText();
+            savedCommands = this.commandsField.getText();
+            savedItems = this.itemsField.getText();
+            savedText = this.textField.getText();
+        }
+
         loadAvailableParents();
 
         int leftColumnWidth = 320;
@@ -190,33 +220,24 @@ public class QuestEditorScreen extends Screen {
 
         this.titleField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.translatable("gui.questz.title"));
         this.titleField.setPlaceholder(Text.translatable("gui.questz.example").formatted(Formatting.DARK_GRAY));
-        if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
-            this.titleField.setText(this.placedAdvancement.getAdvancement().display().get().getTitle().getString());
-        }
+        this.titleField.setText(savedTitle);
         this.addSelectableChild(this.titleField);
         leftY += 32;
 
         this.descField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 60);
         this.descField.setPlaceholder(Text.translatable("gui.questz.example").formatted(Formatting.DARK_GRAY));
-
-        if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
-            this.descField.setText(this.placedAdvancement.getAdvancement().display().get().getDescription().getString());
-        }
+        this.descField.setText(savedDesc);
         this.addSelectableChild(this.descField);
         leftY += 72;
 
         this.iconField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.translatable("gui.questz.icon"));
         this.iconField.setPlaceholder(Text.literal("minecraft:stone").formatted(Formatting.DARK_GRAY));
-        if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
-            this.iconField.setText(Registries.ITEM.getId(this.placedAdvancement.getAdvancement().display().get().getIcon().getItem()).toString());
-        }
+        this.iconField.setText(savedIcon);
         this.addSelectableChild(this.iconField);
         leftY += 32;
 
         this.parentField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.translatable("gui.questz.parent"));
-        if (this.placedAdvancement != null && this.placedAdvancement.getParent() != null) {
-            this.parentField.setText(this.placedAdvancement.getParent().getAdvancementEntry().id().toString());
-        }
+        this.parentField.setText(savedParent);
         this.addSelectableChild(this.parentField);
 
         parentListX = leftX;
@@ -239,25 +260,19 @@ public class QuestEditorScreen extends Screen {
 
         this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
         this.commandsField.setPlaceholder(Text.literal("say Hello, give @s diamond").formatted(Formatting.DARK_GRAY));
-        if (!loadedCommands.isEmpty()) {
-            this.commandsField.setText(loadedCommands);
-        }
+        this.commandsField.setText(savedCommands);
         this.addSelectableChild(this.commandsField);
         leftY += 32;
 
         this.itemsField = new MultilineTextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 40);
         this.itemsField.setPlaceholder(Text.literal("minecraft:diamond:5, minecraft:iron_ingot:10").formatted(Formatting.DARK_GRAY));
-        if (!loadedItems.isEmpty()) {
-            this.itemsField.setText(loadedItems);
-        }
+        this.itemsField.setText(savedItems);
         this.addSelectableChild(this.itemsField);
         leftY += 52;
 
         this.textField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Reward Text"));
         this.textField.setPlaceholder(Text.literal("Congratulations!").formatted(Formatting.DARK_GRAY));
-        if (!loadedText.isEmpty()) {
-            this.textField.setText(loadedText);
-        }
+        this.textField.setText(savedText);
         this.addSelectableChild(this.textField);
         leftY += 32;
 
