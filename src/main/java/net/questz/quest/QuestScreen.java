@@ -42,6 +42,8 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     @Nullable
     private final Screen parent;
     private final ClientAdvancementManager advancementHandler;
+    @Nullable
+    private AdvancementEntry lastSelectedTabEntry = null;
     private final Map<AdvancementEntry, QuestTab> tabs = Maps.newLinkedHashMap();
     @Nullable
     private QuestTab selectedTab;
@@ -149,7 +151,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         }
 
         // Copy advancement to new advancement
-        if(button == 2 && this.creationMode){
+        if (button == 2 && this.creationMode) {
             QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
             if (clickedWidget != null) {
                 this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
@@ -218,9 +220,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         if (this.isDraggingAdvancement && this.draggedWidget != null && this.creationMode) {
             if (this.selectedTab != null) {
                 float scale = this.selectedTab.getTabScale();
-
                 double unitFactor = 28.0;
-
                 double correctedDeltaX = (deltaX / scale) / unitFactor;
                 double correctedDeltaY = (deltaY / scale) / unitFactor;
 
@@ -232,7 +232,6 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
                 if (this.draggedWidget.getAdvancement().getAdvancement().display().isPresent()) {
                     AdvancementDisplay display = this.draggedWidget.getAdvancement().getAdvancement().display().get();
-
                     if (display instanceof DisplayAccess access) {
                         access.setManualPosition(gridX, gridY);
                     } else {
@@ -248,9 +247,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             this.movingTab = true;
         } else if (this.selectedTab != null && !this.isDraggingAdvancement) {
             float scale = this.selectedTab.getTabScale();
-            double correctedDeltaX = deltaX / scale;
-            double correctedDeltaY = deltaY / scale;
-            this.selectedTab.move(correctedDeltaX, correctedDeltaY);
+            this.selectedTab.move(deltaX / scale, deltaY / scale);
         }
 
         return true;
@@ -264,8 +261,8 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         float newScale = MathHelper.clamp(oldScale + (verticalAmount > 0 ? 0.1f : -0.1f), 0.3f, 1.3f);
 
         if (oldScale != newScale) {
-            double tabMouseX = mouseX - ((this.width - 256) / 2 + 9);
-            double tabMouseY = mouseY - ((this.height - 206) / 2 + 18);
+            double tabMouseX = mouseX - ((this.width - 256) / 2f + 9);
+            double tabMouseY = mouseY - ((this.height - 206) / 2f + 18);
 
             double worldMouseX = tabMouseX / oldScale - this.selectedTab.getOriginX();
             double worldMouseY = tabMouseY / oldScale - this.selectedTab.getOriginY();
@@ -396,7 +393,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             if (ConfigInit.CONFIG.questAdvancementNamespaceIds.contains(root.getAdvancementEntry().id().getNamespace())) {
                 this.tabs.put(root.getAdvancementEntry(), advancementTab);
 
-                if (this.selectedTab == null && this.tabs.size() == 1) {
+                if (lastSelectedTabEntry != null && root.getAdvancementEntry().equals(lastSelectedTabEntry)) {
+                    this.advancementHandler.selectTab(root.getAdvancementEntry(), true);
+                } else if (this.selectedTab == null && this.tabs.size() == 1 && lastSelectedTabEntry == null) {
                     this.advancementHandler.selectTab(root.getAdvancementEntry(), true);
                 }
             }
@@ -434,6 +433,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void onClear() {
+        this.lastSelectedTabEntry = this.selectedTab != null ? this.selectedTab.getRoot().getAdvancementEntry() : null;
         this.tabs.clear();
         this.selectedTab = null;
     }

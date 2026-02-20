@@ -337,13 +337,6 @@ public class QuestWidget extends AdvancementWidget {
     }
 
     public void updatePosition(float x, float y) {
-//        if (this.getAdvancement().getAdvancement().display().isPresent()) {
-//            AdvancementDisplay display = this.getAdvancement().getAdvancement().display().get();
-//            display.setPos(x, y);
-//
-//            this.x = (int)display.getX();
-//            this.y = (int)display.getY();
-//        }
         if (this.getAdvancement().getAdvancement().display().isPresent()) {
             AdvancementDisplay display = this.getAdvancement().getAdvancement().display().get();
 
