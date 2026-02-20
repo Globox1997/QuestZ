@@ -8,6 +8,7 @@
     "gui.questz.description": "Description",
     "gui.questz.icon": "Icon",
     "gui.questz.save": "Save",
+    "gui.questz.delete": "Delete",
     "gui.questz.parent": "Parent",
     "gui.questz.background": "Background",
     "gui.questz.commands": "Commands",
@@ -25,6 +26,7 @@
     "gui.questz.criteriaName": "Criteria Name",
     "gui.questz.scroll": "(Scroll to see more)",
     "gui.questz.position": "Position",
+    "gui.questz.delete_warning": "Cannot delete: other quests depend on this!",
 
     "text.autoconfig.questz.title": "QuestZ Config",
     "text.autoconfig.questz.option.maxTextWidth": "Max Text Width",

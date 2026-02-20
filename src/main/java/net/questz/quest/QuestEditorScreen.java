@@ -5,10 +5,7 @@ import com.google.gson.JsonObject;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.advancement.AdvancementCriterion;
-import net.minecraft.advancement.AdvancementDisplay;
-import net.minecraft.advancement.AdvancementRewards;
-import net.minecraft.advancement.PlacedAdvancement;
+import net.minecraft.advancement.*;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -23,6 +20,7 @@ import net.questz.access.RewardAccess;
 import net.questz.init.ConfigInit;
 import net.questz.mixin.client.TextFieldWidgetAccessor;
 import net.questz.network.packet.QuestCreationPacket;
+import net.questz.network.packet.QuestDeletionPacket;
 import net.questz.util.CriterionDataExtractor;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,6 +56,7 @@ public class QuestEditorScreen extends Screen {
     private ButtonWidget chatButton;
     private ButtonWidget hiddenButton;
     private ButtonWidget saveButton;
+    private ButtonWidget deleteButton;
     private String currentFrame = "task";
 
     private final List<String> availableParents = new ArrayList<>();
@@ -90,20 +89,23 @@ public class QuestEditorScreen extends Screen {
     private String savedText = "";
     private String savedBackground = "";
 
+    private int deleteWarningTimer;
+
     // Used to copy the advancement
     public QuestEditorScreen(PlacedAdvancement advancement, @Nullable Screen parent, @Nullable QuestTab selectedTab) {
         super(Text.translatable("gui.questz.newQuest"));
         this.parent = parent;
         this.selectedTab = selectedTab;
-        this.placedAdvancement = advancement;
+        this.placedAdvancement = null;
 
-        AdvancementDisplay display = this.placedAdvancement.getAdvancement().display().get();
+        AdvancementDisplay display = advancement.getAdvancement().display().get();
         this.initialX = (int) display.getX() + 1;
         this.initialY = (int) display.getY();
 
-        loadExistingAdvancementData();
+        loadExistingAdvancementData(advancement);
 
         this.savedTitle = Text.translatable("gui.questz.newQuest").getString();
+        this.savedParent = advancement.getAdvancementEntry().id().toString();
     }
 
     public QuestEditorScreen(@Nullable QuestWidget questWidget, @Nullable Screen parent, @Nullable QuestTab selectedTab, int clickX, int clickY) {
@@ -122,13 +124,12 @@ public class QuestEditorScreen extends Screen {
         }
 
         if (this.placedAdvancement != null) {
-            loadExistingAdvancementData();
+            loadExistingAdvancementData(this.placedAdvancement);
         }
     }
 
-    private void loadExistingAdvancementData() {
-        var advancement = this.placedAdvancement.getAdvancement();
-
+    private void loadExistingAdvancementData(PlacedAdvancement placedAdvancement) {
+        Advancement advancement = placedAdvancement.getAdvancement();
         if (advancement.display().isPresent()) {
             var display = advancement.display().get();
 
@@ -147,8 +148,8 @@ public class QuestEditorScreen extends Screen {
             }
         }
 
-        if (this.placedAdvancement.getParent() != null) {
-            savedParent = this.placedAdvancement.getParent().getAdvancementEntry().id().toString();
+        if (placedAdvancement.getParent() != null) {
+            savedParent = placedAdvancement.getParent().getAdvancementEntry().id().toString();
         }
 
         if (advancement.rewards() != null) {
@@ -160,7 +161,7 @@ public class QuestEditorScreen extends Screen {
             savedText = loadedText;
         }
 
-        loadCriteriaFromAdvancement();
+        loadCriteriaFromAdvancement(placedAdvancement);
     }
 
     private void loadRewardsFromMixin(AdvancementRewards rewards) {
@@ -195,9 +196,9 @@ public class QuestEditorScreen extends Screen {
         }
     }
 
-    private void loadCriteriaFromAdvancement() {
+    private void loadCriteriaFromAdvancement(PlacedAdvancement placedAdvancement) {
         try {
-            var advancement = this.placedAdvancement.getAdvancement();
+            var advancement = placedAdvancement.getAdvancement();
             var criteria = advancement.criteria();
 
             for (Map.Entry<String, AdvancementCriterion<?>> entry : criteria.entrySet()) {
@@ -350,9 +351,17 @@ public class QuestEditorScreen extends Screen {
         }).dimensions(leftX + (btnWidth + 2) * 2, leftY, btnWidth, 20).build());
         leftY += 25;
 
+        int saveWidth = leftColumnWidth - 60;
+        int deleteWidth = 55;
+        int gap = 5;
+
         this.saveButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.save"), (button) -> {
             this.saveAndSend();
-        }).dimensions(leftX, leftY, leftColumnWidth, 20).build());
+        }).dimensions(leftX, leftY, saveWidth, 20).build());
+
+        this.deleteButton = this.addDrawableChild(ButtonWidget.builder(
+                Text.translatable("gui.questz.delete"), button -> this.confirmAndDelete()
+        ).dimensions(leftX + saveWidth + gap, leftY, deleteWidth, 20).build());
 
         this.addCriteriaButton = ButtonWidget.builder(Text.translatable("gui.questz.addCriteria"), (button) -> {
             this.addCriteriaEntry();
@@ -433,6 +442,7 @@ public class QuestEditorScreen extends Screen {
         this.addDrawableChild(this.chatButton);
         this.addDrawableChild(this.hiddenButton);
         this.addDrawableChild(this.saveButton);
+        this.addDrawableChild(this.deleteButton);
         this.addDrawableChild(this.addCriteriaButton);
 
         int criteriaY = y + 25;
@@ -526,6 +536,48 @@ public class QuestEditorScreen extends Screen {
         return result.toString();
     }
 
+    private void confirmAndDelete() {
+        if (this.placedAdvancement == null) return;
+
+        var manager = this.client.player.networkHandler.getAdvancementHandler().getManager();
+        boolean hasDependents = false;
+        String thisId = this.placedAdvancement.getAdvancementEntry().id().toString();
+
+        for (PlacedAdvancement adv : manager.getRoots()) {
+            if (hasDependents(adv, thisId)) {
+                hasDependents = true;
+                break;
+            }
+        }
+
+        if (hasDependents) {
+            this.deleteWarningTimer = 80;
+        } else {
+            ClientPlayNetworking.send(new QuestDeletionPacket(this.placedAdvancement.getAdvancementEntry().id()));
+            this.close();
+        }
+    }
+
+    private boolean hasDependents(PlacedAdvancement advancement, String targetId) {
+        for (PlacedAdvancement child : advancement.getChildren()) {
+            if (child.getParent() != null &&
+                    child.getParent().getAdvancementEntry().id().toString().equals(targetId)) {
+                return true;
+            }
+            if (hasDependents(child, targetId)) return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        if (this.deleteWarningTimer > 0) {
+            this.deleteWarningTimer--;
+        }
+    }
+
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
@@ -604,6 +656,10 @@ public class QuestEditorScreen extends Screen {
             }
 
             criteriaY += entryHeight;
+        }
+
+        if (this.deleteWarningTimer > 0) {
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.delete_warning"), leftX, y + 25, 0xFF4444);
         }
     }
 
@@ -865,7 +921,13 @@ public class QuestEditorScreen extends Screen {
 
         String jsonString = new GsonBuilder().setPrettyPrinting().create().toJson(advancement);
 
-        ClientPlayNetworking.send(new QuestCreationPacket(fileName, jsonString));
+        String existingId = null;
+
+        if (this.placedAdvancement != null) {
+            existingId = this.placedAdvancement.getAdvancementEntry().id().getPath();
+        }
+
+        ClientPlayNetworking.send(new QuestCreationPacket(fileName, jsonString, existingId));
         this.close();
     }
 

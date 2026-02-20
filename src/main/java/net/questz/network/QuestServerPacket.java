@@ -11,6 +11,7 @@ import net.minecraft.util.Identifier;
 import net.questz.QuestzMain;
 import net.questz.access.DisplayAccess;
 import net.questz.network.packet.QuestCreationPacket;
+import net.questz.network.packet.QuestDeletionPacket;
 import net.questz.network.packet.QuestPositionPacket;
 import net.questz.quest.QuestHandler;
 
@@ -19,14 +20,16 @@ public class QuestServerPacket {
     public static void init() {
         PayloadTypeRegistry.playC2S().register(QuestCreationPacket.PACKET_ID, QuestCreationPacket.PACKET_CODEC);
         PayloadTypeRegistry.playC2S().register(QuestPositionPacket.PACKET_ID, QuestPositionPacket.PACKET_CODEC);
+        PayloadTypeRegistry.playC2S().register(QuestDeletionPacket.PACKET_ID, QuestDeletionPacket.PACKET_CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(QuestCreationPacket.PACKET_ID, (payload, context) -> {
             String fileName = payload.fileName();
             String json = payload.jsonContent();
+            String existingAdvancementId = payload.existingAdvancementId();
 
             context.server().execute(() -> {
                 if (context.player().isCreativeLevelTwoOp()) {
-                    QuestHandler.createAdvancement(context.server(), json, fileName);
+                    QuestHandler.createAdvancement(context.server(), json, fileName, existingAdvancementId);
                 }
             });
         });
@@ -70,6 +73,21 @@ public class QuestServerPacket {
                         for (ServerPlayerEntity onlinePlayer : context.server().getPlayerManager().getPlayerList()) {
                             onlinePlayer.getAdvancementTracker().reload(loader);
                         }
+                    }
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(QuestDeletionPacket.PACKET_ID, (payload, context) -> {
+            Identifier advancementId = payload.advancementId();
+
+            context.server().execute(() -> {
+                if (context.player().isCreativeLevelTwoOp()) {
+                    QuestHandler.deleteAdvancement(context.server(), advancementId);
+
+                    ServerAdvancementLoader loader = context.server().getAdvancementLoader();
+                    for (ServerPlayerEntity onlinePlayer : context.server().getPlayerManager().getPlayerList()) {
+                        onlinePlayer.getAdvancementTracker().reload(loader);
                     }
                 }
             });
