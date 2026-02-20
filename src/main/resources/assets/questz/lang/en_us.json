@@ -9,6 +9,7 @@
     "gui.questz.icon": "Icon",
     "gui.questz.save": "Save",
     "gui.questz.parent": "Parent",
+    "gui.questz.background": "Background",
     "gui.questz.commands": "Commands",
     "gui.questz.requirements": "Reqruirements",
     "gui.questz.items": "Items (id:amount)",
