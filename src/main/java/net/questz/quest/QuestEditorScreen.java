@@ -90,6 +90,22 @@ public class QuestEditorScreen extends Screen {
     private String savedText = "";
     private String savedBackground = "";
 
+    // Used to copy the advancement
+    public QuestEditorScreen(PlacedAdvancement advancement, @Nullable Screen parent, @Nullable QuestTab selectedTab) {
+        super(Text.translatable("gui.questz.newQuest"));
+        this.parent = parent;
+        this.selectedTab = selectedTab;
+        this.placedAdvancement = advancement;
+
+        AdvancementDisplay display = this.placedAdvancement.getAdvancement().display().get();
+        this.initialX = (int) display.getX() + 1;
+        this.initialY = (int) display.getY();
+
+        loadExistingAdvancementData();
+
+        this.savedTitle = Text.translatable("gui.questz.newQuest").getString();
+    }
+
     public QuestEditorScreen(@Nullable QuestWidget questWidget, @Nullable Screen parent, @Nullable QuestTab selectedTab, int clickX, int clickY) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ? questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
         this.parent = parent;
@@ -880,7 +896,7 @@ public class QuestEditorScreen extends Screen {
                     List<Map<String, Object>> items = new ArrayList<>();
                     for (String part : value.split(",")) {
                         Map<String, Object> itemEntry = new LinkedHashMap<>();
-                        String[] subParts = part.trim().split(";");
+                        String[] subParts = part.trim().split(":");
 
                         itemEntry.put("items", Collections.singletonList(subParts[0]));
 

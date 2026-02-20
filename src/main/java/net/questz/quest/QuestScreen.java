@@ -148,6 +148,17 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             }
         }
 
+        // Copy advancement to new advancement
+        if(button == 2 && this.creationMode){
+            QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
+            if (clickedWidget != null) {
+                this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+
+                this.client.setScreen(new QuestEditorScreen(clickedWidget.getAdvancement(), this.parent, this.selectedTab));
+                return true;
+            }
+        }
+
         if (isPointWithinBounds(i + 9, j + 18, 238, 179, mouseX, mouseY) && button == 1 && this.creationMode) {
             this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
 
