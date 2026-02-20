@@ -26,6 +26,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.questz.QuestzMain;
 import net.questz.access.DisplayAccess;
+import net.questz.access.PlayerAccess;
 import net.questz.init.ConfigInit;
 import net.questz.init.KeyInit;
 import net.questz.network.packet.QuestPositionPacket;
@@ -57,15 +58,16 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     private boolean isDraggingAdvancement = false;
 
     public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab, boolean creationMode) {
-        this(advancementHandler, parent);
+        this(advancementHandler, parent, selectedTab);
         this.selectedTab = selectedTab;
         this.creationMode = creationMode;
     }
 
-    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent) {
+    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab) {
         super(advancementHandler);
         this.advancementHandler = advancementHandler;
         this.parent = parent;
+        this.selectedTab = selectedTab;
     }
 
     @Override
@@ -99,6 +101,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void close() {
+        ((PlayerAccess) this.client.player).setQuestTab(this.selectedTab);
         this.client.setScreen(this.parent);
     }
 
@@ -316,7 +319,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (KeyInit.screenKey.matchesKey(keyCode, scanCode) || this.client.options.inventoryKey.matchesKey(keyCode, scanCode)) {
-            this.client.setScreen(null);
+            this.close();
             this.client.mouse.lockCursor();
             return true;
         }

@@ -1,5 +1,6 @@
 package net.questz.init;
 
+import net.questz.access.PlayerAccess;
 import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.api.EnvType;
@@ -21,7 +22,7 @@ public class KeyInit {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (screenKey.wasPressed()) {
                 if (client.player != null && client.player.networkHandler != null) {
-                    client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), null));
+                    client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), null, ((PlayerAccess) client.player).getQuestTab()));
                     return;
                 }
             }

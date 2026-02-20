@@ -13,6 +13,7 @@
   ],
   "client": [
     "client.AdvancementsScreenMixin",
+    "client.ClientPlayerEntityMixin",
     "client.TextFieldWidgetAccessor"
   ],
   "injectors": {
