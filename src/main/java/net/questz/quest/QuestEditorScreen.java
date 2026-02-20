@@ -11,11 +11,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.questz.access.CriterionAccess;
+import net.questz.access.DisplayAccess;
 import net.questz.access.RewardAccess;
 import net.questz.init.ConfigInit;
 import net.questz.mixin.client.TextFieldWidgetAccessor;
@@ -98,9 +100,20 @@ public class QuestEditorScreen extends Screen {
         this.selectedTab = selectedTab;
         this.placedAdvancement = null;
 
-        AdvancementDisplay display = advancement.getAdvancement().display().get();
-        this.initialX = (int) display.getX() + 1;
-        this.initialY = (int) display.getY();
+        int x = 0;
+        int y = 0;
+        if (advancement.getAdvancement().display().isPresent()) {
+            AdvancementDisplay display = advancement.getAdvancement().display().get();
+            if (display instanceof DisplayAccess access && access.getManualX() != 0) {
+                x = access.getManualX() + 1;
+                y = access.getManualY();
+            } else {
+                x = (int) display.getX() + 1;
+                y = (int) display.getY();
+            }
+        }
+        this.initialX = x;
+        this.initialY = y;
 
         loadExistingAdvancementData(advancement);
 
@@ -807,7 +820,11 @@ public class QuestEditorScreen extends Screen {
         Map<String, Object> display = new LinkedHashMap<>();
 
         Map<String, String> icon = new LinkedHashMap<>();
-        icon.put("id", this.iconField.getText().isEmpty() ? "minecraft:stone" : this.iconField.getText());
+        if (this.iconField.getText().isEmpty() || Registries.ITEM.get(Identifier.of(this.iconField.getText())).getDefaultStack().isOf(Items.AIR)) {
+            this.iconField.setText("minecraft:stone");
+        }
+        icon.put("id", this.iconField.getText());
+
         display.put("icon", icon);
 
         Map<String, String> title = new LinkedHashMap<>();

@@ -43,8 +43,6 @@ public class QuestTab extends AdvancementTab {
 
     private QuestWidget hoveredWidget = null;
 
-    private int oldMaxPanX = 0;
-    private int oldMaxPanY = 0;
     private float tabScale = 1.0f;
 
     private float alpha;
