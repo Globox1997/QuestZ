@@ -21,7 +21,7 @@ public class KeyInit {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (screenKey.wasPressed()) {
                 if (client.player != null && client.player.networkHandler != null) {
-                    client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), false));
+                    client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), null));
                     return;
                 }
             }

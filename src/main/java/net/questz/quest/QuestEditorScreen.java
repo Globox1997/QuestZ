@@ -32,6 +32,11 @@ import java.util.*;
 public class QuestEditorScreen extends Screen {
 
     @Nullable
+    private final Screen parent;
+    @Nullable
+    private final QuestTab selectedTab;
+
+    @Nullable
     private final PlacedAdvancement placedAdvancement;
 
     private TextFieldWidget positionXField;
@@ -85,8 +90,10 @@ public class QuestEditorScreen extends Screen {
     private String savedText = "";
     private String savedBackground = "";
 
-    public QuestEditorScreen(@Nullable QuestWidget questWidget, int clickX, int clickY) {
+    public QuestEditorScreen(@Nullable QuestWidget questWidget, @Nullable Screen parent, @Nullable QuestTab selectedTab, int clickX, int clickY) {
         super(questWidget != null && questWidget.getAdvancement().getAdvancement().name().isPresent() ? questWidget.getAdvancement().getAdvancement().name().get() : Text.translatable("gui.questz.newQuest"));
+        this.parent = parent;
+        this.selectedTab = selectedTab;
         this.placedAdvancement = questWidget != null ? questWidget.getAdvancement() : null;
 
         if (this.placedAdvancement != null && this.placedAdvancement.getAdvancement().display().isPresent()) {
@@ -101,10 +108,6 @@ public class QuestEditorScreen extends Screen {
         if (this.placedAdvancement != null) {
             loadExistingAdvancementData();
         }
-    }
-
-    public QuestEditorScreen(@Nullable QuestWidget questWidget) {
-        this(questWidget, 0, 0);
     }
 
     private void loadExistingAdvancementData() {
@@ -632,7 +635,7 @@ public class QuestEditorScreen extends Screen {
 
     @Override
     public void close() {
-        this.client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), true));
+        this.client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), this.parent, this.selectedTab, true));
     }
 
     @Override

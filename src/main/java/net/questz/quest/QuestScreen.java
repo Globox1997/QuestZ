@@ -54,8 +54,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     private float dragWidgetY = 0;
     private boolean isDraggingAdvancement = false;
 
-    public QuestScreen(ClientAdvancementManager advancementHandler, boolean creationMode) {
-        this(advancementHandler, null);
+    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab, boolean creationMode) {
+        this(advancementHandler, parent);
+        this.selectedTab = selectedTab;
         this.creationMode = creationMode;
     }
 
@@ -69,7 +70,6 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     protected void init() {
         this.layout.addHeader(QUESTS_TEXT, this.textRenderer);
         this.tabs.clear();
-        this.selectedTab = null;
         this.advancementHandler.setListener(this);
         if (this.selectedTab == null && !this.tabs.isEmpty()) {
             QuestTab advancementTab = this.tabs.values().iterator().next();
@@ -168,7 +168,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                 clickY = (int) ((tabMouseY / scale - this.selectedTab.getOriginY()) / unitFactor);
             }
 
-            this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null, clickX, clickY));
+            this.client.setScreen(new QuestEditorScreen(this.selectedTab != null ? this.selectedTab.getHoveredWidget() : null, this.parent, this.selectedTab, clickX, clickY));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
