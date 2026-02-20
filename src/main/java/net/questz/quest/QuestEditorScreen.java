@@ -672,7 +672,7 @@ public class QuestEditorScreen extends Screen {
         }
 
         if (this.deleteWarningTimer > 0) {
-            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.delete_warning"), leftX, y + 25, 0xFF4444);
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.delete_warning"), this.deleteButton.getX() + this.deleteButton.getWidth() - (this.textRenderer.getWidth(Text.translatable("gui.questz.delete_warning")) / 2), this.deleteButton.getY() + 28, 0xFF4444);
         }
     }
 
