@@ -62,7 +62,7 @@ public class AdvancementMixin implements AdvancementAccess {
         }).orElse(false);
 
         buf.writeBoolean(this.parent.isEmpty() || isQuestz);
-        if (isQuestz) {
+        if (this.parent.isEmpty() ||isQuestz) {
             PacketCodecs.codec(AdvancementRewards.CODEC).encode(buf, this.rewards);
             buf.writeVarInt(this.criteria.size());
             this.criteria.forEach((name, criterion) -> {
