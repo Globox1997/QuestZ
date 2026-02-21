@@ -207,20 +207,8 @@ public class QuestTab extends AdvancementTab {
 
     @Override
     public void move(double offsetX, double offsetY) {
-        double contentWidth = (this.maxPanX - this.minPanX) * this.tabScale;
-        double contentHeight = (this.maxPanY - this.minPanY) * this.tabScale;
-
-        if (contentWidth > 238) {
-            this.originX = MathHelper.clamp(this.originX + offsetX, (double) (238f - contentWidth), 0.0f);
-        } else {
-            this.originX += offsetX;
-        }
-
-        if (contentHeight > 179) {
-            this.originY = MathHelper.clamp(this.originY + offsetY, (double) (179f - contentHeight), 0.0f);
-        } else {
-            this.originY += offsetY;
-        }
+        this.originX += offsetX;
+        this.originY += offsetY;
     }
 
     @Override
