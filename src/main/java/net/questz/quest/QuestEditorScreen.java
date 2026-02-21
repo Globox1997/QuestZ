@@ -847,11 +847,11 @@ public class QuestEditorScreen extends Screen {
         try {
             float posX = Float.parseFloat(this.positionXField.getText());
             float posY = Float.parseFloat(this.positionYField.getText());
-            display.put("manual_x", posX);
-            display.put("manual_y", posY);
+            display.put("x_manual", posX);
+            display.put("y_manual", posY);
         } catch (NumberFormatException e) {
-            display.put("manual_x", this.initialX);
-            display.put("manual_y", this.initialY);
+            display.put("x_manual", this.initialX);
+            display.put("y_manual", this.initialY);
         }
 
         advancement.put("display", display);

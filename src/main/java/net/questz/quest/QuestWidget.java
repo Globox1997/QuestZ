@@ -61,7 +61,7 @@ public class QuestWidget extends AdvancementWidget {
         this.title = Language.getInstance().reorder(client.textRenderer.trimToWidth(display.getTitle(), 163));
 
         this.x = MathHelper.floor(display.getX() * 28.0F);
-        this.y = MathHelper.floor(display.getY() * 27.0F);
+        this.y = MathHelper.floor(display.getY() * 28.0F);
         int i = this.getProgressWidth();
         int j = 29 + client.textRenderer.getWidth(this.title) + i;
 
