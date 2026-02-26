@@ -1,9 +1,8 @@
-# Fabric Example Mod
+# QuestZ
+QuestZ enhances the advancement system of minecraft for a simple quest system.
 
-## Setup
+### Installation
+QuestZ is a mod built for the [Fabric Loader](https://fabricmc.net/). It requires [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api) and [Cloth Config API](https://www.curseforge.com/minecraft/mc-mods/cloth-config) to be installed separately; all other dependencies are installed with the mod.
 
-For setup instructions please see the [fabric documentation page](https://docs.fabricmc.net/develop/getting-started/setting-up) that relates to the IDE that you are using.
-
-## License
-
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+### License
+QuestZ is licensed under MIT.
