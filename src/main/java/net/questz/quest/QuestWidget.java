@@ -12,10 +12,18 @@ import net.minecraft.client.font.TextHandler;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.advancement.AdvancementObtainedStatus;
 import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.loot.condition.EntityPropertiesLootCondition;
+import net.minecraft.loot.condition.LootCondition;
 import net.minecraft.predicate.BlockPredicate;
+import net.minecraft.predicate.entity.EntityPredicate;
+import net.minecraft.predicate.entity.LootContextPredicate;
 import net.minecraft.predicate.item.ItemPredicate;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntryList;
@@ -28,9 +36,15 @@ import net.minecraft.util.math.MathHelper;
 import net.questz.access.RewardAccess;
 import net.questz.criteria.QuestCriterion;
 import net.questz.init.ConfigInit;
+import net.questz.mixin.LootContextPredicateAccessor;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Environment(EnvType.CLIENT)
 public class QuestWidget extends AdvancementWidget {
@@ -45,6 +59,7 @@ public class QuestWidget extends AdvancementWidget {
     private List<OrderedText> description;
     private final List<ItemRenderInfo> itemRenderList = new ArrayList<>();
     private final List<ItemRenderInfo> itemRewardRenderList = new ArrayList<>();
+    private final List<EntityRenderInfo> entityRenderList = new ArrayList<>();
     private final MinecraftClient client;
     @Nullable
     private QuestWidget parent;
@@ -299,6 +314,32 @@ public class QuestWidget extends AdvancementWidget {
                 context.getMatrices().pop();
             }
         }
+        for (EntityRenderInfo info : this.entityRenderList) {
+            if (info.lineIndex == lineIndex && client.world != null) {
+                Entity created = info.entityType.create(client.world);
+                if (created instanceof LivingEntity entity) {
+
+                    entity.setYaw(0);
+                    entity.setHeadYaw(0);
+                    entity.setPitch(0);
+                    entity.prevYaw = 0;
+                    entity.prevHeadYaw = 0;
+                    entity.prevPitch = 0;
+                    entity.bodyYaw = 0;
+                    entity.prevBodyYaw = 0;
+
+                    Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY((float) Math.PI + 0.4f);
+                    Quaternionf headRotation = new Quaternionf();
+                    float entityHeight = info.entityType.getDimensions().height();
+                    float entityWidth = info.entityType.getDimensions().width();
+                    float maxDim = Math.max(entityHeight, entityWidth);
+
+                    int size = (int) Math.clamp(8.0f / maxDim * 1.8f, 3, 8);
+
+                    InventoryScreen.drawEntity(context, posX + info.xOffset + 4, posY + 15, size, new Vector3f(0, 0.1f, 0), rotation, headRotation, entity);
+                }
+            }
+        }
     }
 
     @Override
@@ -351,9 +392,11 @@ public class QuestWidget extends AdvancementWidget {
 
     private void buildDescription() {
         this.itemRenderList.clear();
+        this.entityRenderList.clear();
 
         List<Text> descriptionParts = new ArrayList<>();
         List<ItemRenderInfo> pendingItems = new ArrayList<>();
+        List<EntityRenderInfo> pendingEntities = new ArrayList<>();
 
         descriptionParts.add(display.getDescription().copy());
 
@@ -377,9 +420,7 @@ public class QuestWidget extends AdvancementWidget {
 
                 if (criterion.trigger() instanceof InventoryChangedCriterion) {
                     InventoryChangedCriterion.Conditions conditions = (InventoryChangedCriterion.Conditions) criterion.conditions();
-
                     List<ItemPredicate> itemPredicates = conditions.items();
-
                     if (!itemPredicates.isEmpty()) {
                         for (ItemPredicate predicate : itemPredicates) {
                             Optional<RegistryEntryList<Item>> itemEntry = predicate.items();
@@ -389,34 +430,26 @@ public class QuestWidget extends AdvancementWidget {
                                 if (predicate.count().min().isPresent()) {
                                     count = predicate.count().min().get();
                                 }
-
                                 String itemName = item.getName().getString();
                                 descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
-
-                                ItemStack stack = new ItemStack(item, count);
-                                pendingItems.add(new ItemRenderInfo(-1, 2, stack, itemName));
+                                pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
                             }
                         }
                     } else {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
+
                 } else if (criterion.trigger() instanceof QuestCriterion) {
                     QuestCriterion.Conditions conditions = (QuestCriterion.Conditions) criterion.conditions();
-
                     if (Registries.ITEM.get(conditions.objectPredicate().objectId()) != Items.AIR) {
                         Item item = Registries.ITEM.get(conditions.objectPredicate().objectId());
                         int count = conditions.countPredicate().count();
-
                         String itemName = item.getName().getString();
                         descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
-
-                        ItemStack stack = new ItemStack(item, count);
-                        pendingItems.add(new ItemRenderInfo(-1, 2, stack, itemName));
+                        pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
                     } else {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
-                } else if (criterion.trigger() instanceof BrewedPotionCriterion brewedPotionCriterion) {
-                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
 
                 } else if (criterion.trigger() instanceof ConsumeItemCriterion) {
                     var conditions = (ConsumeItemCriterion.Conditions) criterion.conditions();
@@ -437,10 +470,6 @@ public class QuestWidget extends AdvancementWidget {
                 } else if (criterion.trigger() instanceof ItemDurabilityChangedCriterion) {
                     var conditions = (ItemDurabilityChangedCriterion.Conditions) criterion.conditions();
                     addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
-                } else if (criterion.trigger() instanceof RecipeUnlockedCriterion) {
-                    var conditions = (RecipeUnlockedCriterion.Conditions) criterion.conditions();
-                    String recipeId = conditions.recipe().toString();
-                    descriptionParts.add(Text.literal("  • " + recipeId).formatted(statusColor));
 
                 } else if (criterion.trigger() instanceof ThrownItemPickedUpByEntityCriterion) {
                     var conditions = (ThrownItemPickedUpByEntityCriterion.Conditions) criterion.conditions();
@@ -450,10 +479,17 @@ public class QuestWidget extends AdvancementWidget {
                     var conditions = (UsingItemCriterion.Conditions) criterion.conditions();
                     addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
 
-                } else if (criterion.trigger() instanceof SlideDownBlockCriterion) {
-                    var conditions = (SlideDownBlockCriterion.Conditions) criterion.conditions();
-
-                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                } else if (criterion.trigger() instanceof RecipeUnlockedCriterion) {
+                    var conditions = (RecipeUnlockedCriterion.Conditions) criterion.conditions();
+                    Identifier recipeId = conditions.recipe();
+                    Item recipeItem = Registries.ITEM.get(recipeId);
+                    if (recipeItem != Items.AIR) {
+                        String itemName = recipeItem.getName().getString();
+                        descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+                        pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(recipeItem), itemName));
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + recipeId.getPath()).formatted(statusColor));
+                    }
                 } else if (criterion.trigger() instanceof EnterBlockCriterion) {
                     var conditions = (EnterBlockCriterion.Conditions) criterion.conditions();
                     if (conditions.block().isPresent()) {
@@ -463,10 +499,81 @@ public class QuestWidget extends AdvancementWidget {
                             String blockName = block.getName().getString();
                             descriptionParts.add(Text.literal("    " + blockName).formatted(statusColor));
                             pendingItems.add(new ItemRenderInfo(-1, 2, stack, blockName));
+                        } else {
+                            descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                         }
                     } else {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
+
+                } else if (criterion.trigger() instanceof SlideDownBlockCriterion) {
+                    // var conditions = (SlideDownBlockCriterion.Conditions) criterion.conditions();
+                    // addItemFromBlock(conditions.block(), criterionName, statusColor, descriptionParts, pendingItems);
+                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                } else if (criterion.trigger() instanceof BredAnimalsCriterion) {
+                    var conditions = (BredAnimalsCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.child())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> this.getEntityTypeFromLootContext(conditions.parent())
+                                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor))));
+                } else if (criterion.trigger() instanceof CuredZombieVillagerCriterion) {
+                    var conditions = (CuredZombieVillagerCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.villager())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+
+                } else if (criterion.trigger() instanceof KilledByCrossbowCriterion) {
+                    var conditions = (KilledByCrossbowCriterion.Conditions) criterion.conditions();
+
+                    if (!conditions.victims().isEmpty()) {
+                        this.getEntityTypeFromLootContext(Optional.of(conditions.victims().get(0)))
+                                .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                        () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
+
+                } else if (criterion.trigger() instanceof PlayerHurtEntityCriterion) {
+                    var conditions = (PlayerHurtEntityCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.entity())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+
+                } else if (criterion.trigger() instanceof PlayerInteractedWithEntityCriterion) {
+                    var conditions = (PlayerInteractedWithEntityCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.entity())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+                } else if (criterion.trigger() instanceof OnKilledCriterion) {
+                    var conditions = (OnKilledCriterion.Conditions) criterion.conditions();
+
+                    this.getEntityTypeFromLootContext(conditions.entity())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+
+                } else if (criterion.trigger() instanceof SummonedEntityCriterion) {
+                    var conditions = (SummonedEntityCriterion.Conditions) criterion.conditions();
+
+                    this.getEntityTypeFromLootContext(conditions.entity())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+                } else if (criterion.trigger() instanceof TameAnimalCriterion) {
+                    var conditions = (TameAnimalCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.entity())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+                } else if (criterion.trigger() instanceof VillagerTradeCriterion) {
+                    var conditions = (VillagerTradeCriterion.Conditions) criterion.conditions();
+                    this.getEntityTypeFromLootContext(conditions.villager())
+                            .ifPresentOrElse(type -> addEntityFromType(type, criterionName, statusColor, descriptionParts, pendingEntities),
+                                    () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof BrewedPotionCriterion) {
+                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                 } else {
                     descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                 }
@@ -474,17 +581,16 @@ public class QuestWidget extends AdvancementWidget {
         }
 
         MutableText finalDescription = Text.literal("");
-        for (int i = 0; i < descriptionParts.size(); i++) {
-            if (i > 0) {
-                finalDescription.append("\n");
-            }
+        for (
+                int i = 0; i < descriptionParts.size(); i++) {
+            if (i > 0) finalDescription.append("\n");
             finalDescription.append(descriptionParts.get(i));
         }
 
-        setWidthAndDescription(finalDescription, pendingItems);
+        setWidthAndDescription(finalDescription, pendingItems, pendingEntities);
     }
 
-    private void setWidthAndDescription(Text description, List<ItemRenderInfo> pendingItems) {
+    private void setWidthAndDescription(Text description, List<ItemRenderInfo> pendingItems, List<EntityRenderInfo> pendingEntities) {
         int i = advancement.getAdvancement().requirements().getLength();
         int j = String.valueOf(i).length();
         int k = i > 1 ? client.textRenderer.getWidth("  ") +
@@ -530,6 +636,24 @@ public class QuestWidget extends AdvancementWidget {
         }
 
         appendCustomRewards();
+
+        for (EntityRenderInfo pendingEntity : pendingEntities) {
+            String searchText = pendingEntity.entityName;
+
+            for (int lineIndex = 0; lineIndex < this.description.size(); lineIndex++) {
+                OrderedText line = this.description.get(lineIndex);
+                StringBuilder lineText = new StringBuilder();
+                line.accept((index, style, codePoint) -> {
+                    lineText.appendCodePoint(codePoint);
+                    return true;
+                });
+
+                if (lineText.toString().contains(searchText)) {
+                    this.entityRenderList.add(new EntityRenderInfo(lineIndex, pendingEntity.xOffset, pendingEntity.entityType));
+                    break;
+                }
+            }
+        }
 
         for (OrderedText orderedText : this.description) {
             l = Math.max(l, client.textRenderer.getWidth(orderedText));
@@ -611,6 +735,48 @@ public class QuestWidget extends AdvancementWidget {
         descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
     }
 
+    private void addEntityFromPredicate(EntityPredicate predicate, String fallbackName, Formatting statusColor, List<Text> descriptionParts, List<EntityRenderInfo> pendingEntities) {
+        if (predicate != null && predicate.type().isPresent()) {
+            var typeEntry = predicate.type().get();
+            if (typeEntry.types().size() > 0) {
+                EntityType<?> entityType = typeEntry.types().get(0).value();
+                String entityName = entityType.getName().getString();
+                descriptionParts.add(Text.literal("    " + entityName).formatted(statusColor));
+                pendingEntities.add(new EntityRenderInfo(-1, 2, entityType));
+                return;
+            }
+        }
+        descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+    }
+
+    private void addEntityFromType(EntityType<?> entityType, String fallbackName, Formatting statusColor, List<Text> descriptionParts, List<EntityRenderInfo> pendingEntities) {
+        String entityName = entityType.getName().getString();
+        descriptionParts.add(Text.literal("    " + entityName).formatted(statusColor));
+        descriptionParts.add(Text.literal(""));
+        pendingEntities.add(new EntityRenderInfo(-1, 2, entityType));
+    }
+
+    private Optional<EntityType<?>> getEntityTypeFromLootContext(Optional<LootContextPredicate> lootContext) {
+        if (lootContext.isEmpty()) return Optional.empty();
+
+        List<LootCondition> conditions = ((LootContextPredicateAccessor) lootContext.get()).getConditions();
+
+        for (LootCondition condition : conditions) {
+            if (condition instanceof EntityPropertiesLootCondition entityProps) {
+                if (entityProps.predicate().isPresent()) {
+                    EntityPredicate predicate = entityProps.predicate().get();
+                    if (predicate.type().isPresent()) {
+                        var types = predicate.type().get().types();
+                        if (types.size() > 0) {
+                            return Optional.of(types.get(0).value());
+                        }
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     private static class ItemRenderInfo {
         final int lineIndex;
         final int xOffset;
@@ -632,12 +798,14 @@ public class QuestWidget extends AdvancementWidget {
     private static class EntityRenderInfo {
         final int lineIndex;
         final int xOffset;
-        final net.minecraft.entity.EntityType<?> entityType;
+        final EntityType<?> entityType;
+        final String entityName;
 
-        EntityRenderInfo(int lineIndex, int xOffset, net.minecraft.entity.EntityType<?> entityType) {
+        EntityRenderInfo(int lineIndex, int xOffset, EntityType<?> entityType) {
             this.lineIndex = lineIndex;
             this.xOffset = xOffset;
             this.entityType = entityType;
+            this.entityName = entityType.getName().getString();
         }
     }
 }
