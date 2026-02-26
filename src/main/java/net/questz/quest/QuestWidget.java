@@ -41,10 +41,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Environment(EnvType.CLIENT)
 public class QuestWidget extends AdvancementWidget {
@@ -60,6 +57,7 @@ public class QuestWidget extends AdvancementWidget {
     private final List<ItemRenderInfo> itemRenderList = new ArrayList<>();
     private final List<ItemRenderInfo> itemRewardRenderList = new ArrayList<>();
     private final List<EntityRenderInfo> entityRenderList = new ArrayList<>();
+    private static final Map<EntityType<?>, EntityRenderConfig> ENTITY_RENDER_CONFIGS = new HashMap<>();
     private final MinecraftClient client;
     @Nullable
     private QuestWidget parent;
@@ -328,15 +326,30 @@ public class QuestWidget extends AdvancementWidget {
                     entity.bodyYaw = 0;
                     entity.prevBodyYaw = 0;
 
-                    Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY((float) Math.PI + 0.4f);
+                    EntityRenderConfig config = ENTITY_RENDER_CONFIGS.get(info.entityType);
+
+                    int size;
+                    float yOffset;
+                    float xOff;
+                    float rotY;
+
+                    if (config != null) {
+                        size = config.size;
+                        yOffset = config.yOffset;
+                        xOff = config.xOffset;
+                        rotY = config.rotationY;
+                    } else {
+                        float maxDim = Math.max(info.entityType.getDimensions().height(), info.entityType.getDimensions().width());
+                        size = (int) Math.clamp(8.0f / maxDim * 1.8f, 3, 8);
+                        yOffset = 15;
+                        xOff = 4;
+                        rotY = (float) Math.PI + 0.4f;
+                    }
+
+                    Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY(rotY);
                     Quaternionf headRotation = new Quaternionf();
-                    float entityHeight = info.entityType.getDimensions().height();
-                    float entityWidth = info.entityType.getDimensions().width();
-                    float maxDim = Math.max(entityHeight, entityWidth);
 
-                    int size = (int) Math.clamp(8.0f / maxDim * 1.8f, 3, 8);
-
-                    InventoryScreen.drawEntity(context, posX + info.xOffset + 4, posY + 15, size, new Vector3f(0, 0.1f, 0), rotation, headRotation, entity);
+                    InventoryScreen.drawEntity(context, posX + info.xOffset + xOff, posY + yOffset, size, new Vector3f(0, 0f, 0), rotation, headRotation, entity);
                 }
             }
         }
@@ -807,5 +820,40 @@ public class QuestWidget extends AdvancementWidget {
             this.entityType = entityType;
             this.entityName = entityType.getName().getString();
         }
+    }
+
+    private static class EntityRenderConfig {
+        final int size;
+        final float yOffset;
+        final float xOffset;
+        final float rotationY;
+
+        EntityRenderConfig(int size, float yOffset, float xOffset, float rotationY) {
+            this.size = size;
+            this.yOffset = yOffset;
+            this.xOffset = xOffset;
+            this.rotationY = rotationY;
+        }
+    }
+
+    static {
+        ENTITY_RENDER_CONFIGS.put(EntityType.ENDER_DRAGON, new EntityRenderConfig(2, 12, 4, (float) 0.3f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.GHAST, new EntityRenderConfig(3, 10, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.WITHER, new EntityRenderConfig(3, 14, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.IRON_GOLEM, new EntityRenderConfig(4, 13, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.RAVAGER, new EntityRenderConfig(4, 13, 4, (float) Math.PI + 0.4f));
+
+        ENTITY_RENDER_CONFIGS.put(EntityType.SPIDER, new EntityRenderConfig(6, 12, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.CAVE_SPIDER, new EntityRenderConfig(7, 11, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.SLIME, new EntityRenderConfig(10, 13, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.MAGMA_CUBE, new EntityRenderConfig(10, 13, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.HOGLIN, new EntityRenderConfig(6, 13, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.ZOGLIN, new EntityRenderConfig(6, 13, 4, (float) Math.PI + 0.4f));
+
+        ENTITY_RENDER_CONFIGS.put(EntityType.BAT, new EntityRenderConfig(9, 12, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.CHICKEN, new EntityRenderConfig(9, 12, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.CAT, new EntityRenderConfig(8, 12, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.RABBIT, new EntityRenderConfig(9, 11, 4, (float) Math.PI + 0.4f));
+        ENTITY_RENDER_CONFIGS.put(EntityType.SILVERFISH, new EntityRenderConfig(10, 10, 4, (float) Math.PI + 0.4f));
     }
 }
