@@ -103,9 +103,28 @@ public class CriterionDataExtractor {
         }
 
         if (conditions.has("entity")) {
-            var entity = conditions.getAsJsonObject("entity");
-            if (entity.has("type")) {
-                data.put("entity", entity.get("type").getAsString());
+            var entity = conditions.get("entity");
+
+            if (entity.isJsonObject()) {
+                var entityObj = entity.getAsJsonObject();
+                if (entityObj.has("type")) {
+                    data.put("entity", entityObj.get("type").getAsString());
+                }
+            }
+            else if (entity.isJsonArray()) {
+                var array = entity.getAsJsonArray();
+                for (var element : array) {
+                    if (element.isJsonObject()) {
+                        var obj = element.getAsJsonObject();
+                        if (obj.has("predicate")) {
+                            var predicate = obj.getAsJsonObject("predicate");
+                            if (predicate.has("type")) {
+                                data.put("entity", predicate.get("type").getAsString());
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
 
