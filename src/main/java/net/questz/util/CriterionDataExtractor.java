@@ -92,7 +92,7 @@ public class CriterionDataExtractor {
                     if (item.has("count")) {
                         var count = item.getAsJsonObject("count");
                         if (count.has("min")) {
-                            sb.append(";").append(count.get("min").getAsInt());
+                            sb.append(":").append(count.get("min").getAsInt());
                         }
                     }
                 }
