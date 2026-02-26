@@ -357,7 +357,7 @@ public class QuestWidget extends AdvancementWidget {
 
         Map<String, AdvancementCriterion<?>> criteria = this.advancement.getAdvancement().criteria();
 
-        if (criteria != null && !criteria.isEmpty() && !criteria.containsKey("quest_start") && (ConfigInit.CONFIG.showRootRequirements && advancement.getParent() == null)) {
+        if (criteria != null && !criteria.isEmpty() && !criteria.containsKey("quest_start") && (advancement.getParent() != null || ConfigInit.CONFIG.showRootRequirements)) {
             descriptionParts.add(Text.literal(""));
             descriptionParts.add(Text.translatable("gui.questz.requirements").formatted(Formatting.YELLOW));
 
