@@ -5,7 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.advancement.*;
-import net.minecraft.advancement.criterion.InventoryChangedCriterion;
+import net.minecraft.advancement.criterion.*;
+import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextHandler;
 import net.minecraft.client.gui.DrawContext;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.predicate.BlockPredicate;
 import net.minecraft.predicate.item.ItemPredicate;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntryList;
@@ -413,6 +415,58 @@ public class QuestWidget extends AdvancementWidget {
                     } else {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
+                } else if (criterion.trigger() instanceof BrewedPotionCriterion brewedPotionCriterion) {
+                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+
+                } else if (criterion.trigger() instanceof ConsumeItemCriterion) {
+                    var conditions = (ConsumeItemCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof EnchantedItemCriterion) {
+                    var conditions = (EnchantedItemCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof FilledBucketCriterion) {
+                    var conditions = (FilledBucketCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof FishingRodHookedCriterion) {
+                    var conditions = (FishingRodHookedCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof ItemDurabilityChangedCriterion) {
+                    var conditions = (ItemDurabilityChangedCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+                } else if (criterion.trigger() instanceof RecipeUnlockedCriterion) {
+                    var conditions = (RecipeUnlockedCriterion.Conditions) criterion.conditions();
+                    String recipeId = conditions.recipe().toString();
+                    descriptionParts.add(Text.literal("  • " + recipeId).formatted(statusColor));
+
+                } else if (criterion.trigger() instanceof ThrownItemPickedUpByEntityCriterion) {
+                    var conditions = (ThrownItemPickedUpByEntityCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof UsingItemCriterion) {
+                    var conditions = (UsingItemCriterion.Conditions) criterion.conditions();
+                    addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
+
+                } else if (criterion.trigger() instanceof SlideDownBlockCriterion) {
+                    var conditions = (SlideDownBlockCriterion.Conditions) criterion.conditions();
+
+                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                } else if (criterion.trigger() instanceof EnterBlockCriterion) {
+                    var conditions = (EnterBlockCriterion.Conditions) criterion.conditions();
+                    if (conditions.block().isPresent()) {
+                        Block block = conditions.block().get().value();
+                        ItemStack stack = new ItemStack(block.asItem());
+                        if (!stack.isOf(Items.AIR)) {
+                            String blockName = block.getName().getString();
+                            descriptionParts.add(Text.literal("    " + blockName).formatted(statusColor));
+                            pendingItems.add(new ItemRenderInfo(-1, 2, stack, blockName));
+                        }
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
                 } else {
                     descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                 }
@@ -522,6 +576,41 @@ public class QuestWidget extends AdvancementWidget {
         }
     }
 
+    private void addItemFromPredicate(ItemPredicate predicate, String fallbackName, Formatting statusColor, List<Text> descriptionParts, List<ItemRenderInfo> pendingItems) {
+        if (predicate != null && predicate.items().isPresent()) {
+            var itemList = predicate.items().get();
+            if (itemList.size() > 0) {
+                Item item = itemList.get(0).value();
+                int count = 1;
+                if (predicate.count().min().isPresent()) {
+                    count = predicate.count().min().get();
+                }
+                String itemName = item.getName().getString();
+                descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+                pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
+                return;
+            }
+        }
+        descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+    }
+
+    private void addItemFromBlock(BlockPredicate predicate, String fallbackName, Formatting statusColor, List<Text> descriptionParts, List<ItemRenderInfo> pendingItems) {
+        if (predicate != null && predicate.blocks().isPresent()) {
+            var blockList = predicate.blocks().get();
+            if (blockList.size() > 0) {
+                Block block = blockList.get(0).value();
+                ItemStack stack = new ItemStack(block.asItem());
+                if (!stack.isOf(Items.AIR)) {
+                    String blockName = block.getName().getString();
+                    descriptionParts.add(Text.literal("    " + blockName).formatted(statusColor));
+                    pendingItems.add(new ItemRenderInfo(-1, 2, stack, blockName));
+                    return;
+                }
+            }
+        }
+        descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+    }
+
     private static class ItemRenderInfo {
         final int lineIndex;
         final int xOffset;
@@ -537,6 +626,18 @@ public class QuestWidget extends AdvancementWidget {
 
         ItemRenderInfo(int lineIndex, int xOffset, ItemStack itemStack) {
             this(lineIndex, xOffset, itemStack, "");
+        }
+    }
+
+    private static class EntityRenderInfo {
+        final int lineIndex;
+        final int xOffset;
+        final net.minecraft.entity.EntityType<?> entityType;
+
+        EntityRenderInfo(int lineIndex, int xOffset, net.minecraft.entity.EntityType<?> entityType) {
+            this.lineIndex = lineIndex;
+            this.xOffset = xOffset;
+            this.entityType = entityType;
         }
     }
 }
