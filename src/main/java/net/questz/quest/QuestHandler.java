@@ -18,6 +18,11 @@ public class QuestHandler {
 
     public static void createAdvancement(MinecraftServer server, String jsonContent, String fileName, @Nullable String existingAdvancementId) {
         Path datapackPath = server.getSavePath(WorldSavePath.ROOT).resolve("datapacks/questz_generated");
+
+        if (existingAdvancementId == null) {
+            fileName = getUniqueFileName(datapackPath, fileName);
+        }
+
         Path advancementPath = datapackPath.resolve("data/questz/advancement/quests/" + fileName + ".json");
 
         try {
@@ -30,12 +35,24 @@ public class QuestHandler {
             Files.writeString(advancementPath, jsonContent);
 
             createPackMcmeta(datapackPath);
-
-            // Reload triggern
             server.getCommandManager().executeWithPrefix(server.getCommandSource(), "reload");
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private static String getUniqueFileName(Path datapackPath, String fileName) {
+        Path questsPath = datapackPath.resolve("data/questz/advancement/quests/");
+
+        if (!Files.exists(questsPath.resolve(fileName + ".json"))) {
+            return fileName;
+        }
+
+        int counter = 1;
+        while (Files.exists(questsPath.resolve(fileName + "_" + counter + ".json"))) {
+            counter++;
+        }
+        return fileName + "_" + counter;
     }
 
     public static void updateAdvancementPosition(MinecraftServer server, Identifier advancementId, float x, float y) {
