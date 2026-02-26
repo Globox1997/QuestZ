@@ -664,6 +664,7 @@ public class QuestEditorScreen extends Screen {
 
             for (TextFieldWidget field : entry.dynamicFields.values()) {
                 if (field != null) {
+                    field.setMaxLength(200);
                     field.render(context, mouseX, mouseY, delta);
                 }
             }
@@ -823,6 +824,7 @@ public class QuestEditorScreen extends Screen {
         if (this.iconField.getText().isEmpty() || Registries.ITEM.get(Identifier.of(this.iconField.getText())).getDefaultStack().isOf(Items.AIR)) {
             this.iconField.setText("minecraft:stone");
         }
+
         icon.put("id", this.iconField.getText());
 
         display.put("icon", icon);
@@ -859,9 +861,11 @@ public class QuestEditorScreen extends Screen {
         Map<String, Object> criteria = new LinkedHashMap<>();
         List<List<String>> requirements = new ArrayList<>();
 
-        for (CriteriaEntry entry : criteriaEntries) {
-            if (entry.name.isEmpty()) continue;
-
+        for (int i = 0; i < criteriaEntries.size(); i++) {
+            CriteriaEntry entry = criteriaEntries.get(i);
+            if (entry.name.isEmpty()) {
+                entry.name = "criteria_" + i;
+            }
             Map<String, Object> criterion = new LinkedHashMap<>();
             criterion.put("trigger", entry.trigger);
 
@@ -975,15 +979,29 @@ public class QuestEditorScreen extends Screen {
                     List<Map<String, Object>> items = new ArrayList<>();
                     for (String part : value.split(",")) {
                         Map<String, Object> itemEntry = new LinkedHashMap<>();
-                        String[] subParts = part.trim().split(":");
+                        String trimmed = part.trim();
 
-                        itemEntry.put("items", Collections.singletonList(subParts[0]));
+                        int lastColon = trimmed.lastIndexOf(":");
+                        String itemId = trimmed;
+                        int count = -1;
 
-                        if (subParts.length > 1) {
+                        if (lastColon != -1) {
+                            String lastPart = trimmed.substring(lastColon + 1);
+                            try {
+                                count = Integer.parseInt(lastPart);
+                                itemId = trimmed.substring(0, lastColon);
+                            } catch (NumberFormatException ignored) {
+                            }
+                        }
+
+                        itemEntry.put("items", Collections.singletonList(itemId));
+
+                        if (count > 0) {
                             Map<String, Object> countMap = new LinkedHashMap<>();
-                            countMap.put("min", Integer.parseInt(subParts[1]));
+                            countMap.put("min", count);
                             itemEntry.put("count", countMap);
                         }
+
                         items.add(itemEntry);
                     }
                     return items;
