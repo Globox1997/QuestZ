@@ -27,7 +27,7 @@ public class QuestTab extends AdvancementTab {
     private final MinecraftClient client;
     private final AdvancementsScreen screen;
     private final AdvancementTabType type;
-    private final int index;
+    private int index;
     private final PlacedAdvancement root;
     private final AdvancementDisplay display;
     private final ItemStack icon;
@@ -291,8 +291,11 @@ public class QuestTab extends AdvancementTab {
 
         widget.updatePosition(display.getX(), display.getY());
 
-        // Optional: Aktualisiere die Tab-Bounds falls nötig
         // updateTabBounds();
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
     }
 
 }

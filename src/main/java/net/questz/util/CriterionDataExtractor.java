@@ -80,7 +80,9 @@ public class CriterionDataExtractor {
                     if (i > 0) sb.append(",");
                     var item = array.get(i).getAsJsonObject();
 
-                    if (item.has("items")) {
+                    if (item.has("tag")) {
+                        sb.append("#").append(item.get("tag").getAsString());
+                    } else if (item.has("items")) {
                         var itemsField = item.get("items");
                         if (itemsField.isJsonArray() && itemsField.getAsJsonArray().size() > 0) {
                             sb.append(itemsField.getAsJsonArray().get(0).getAsString());
@@ -110,8 +112,7 @@ public class CriterionDataExtractor {
                 if (entityObj.has("type")) {
                     data.put("entity", entityObj.get("type").getAsString());
                 }
-            }
-            else if (entity.isJsonArray()) {
+            } else if (entity.isJsonArray()) {
                 var array = entity.getAsJsonArray();
                 for (var element : array) {
                     if (element.isJsonObject()) {

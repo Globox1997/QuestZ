@@ -52,6 +52,7 @@ public class QuestEditorScreen extends Screen {
     private MultilineTextFieldWidget itemsField;
     private TextFieldWidget textField;
     private TextFieldWidget backgroundField;
+    private TextFieldWidget orderField;
 
     private ButtonWidget frameButton;
     private ButtonWidget toastButton;
@@ -90,6 +91,7 @@ public class QuestEditorScreen extends Screen {
     private String savedItems = "";
     private String savedText = "";
     private String savedBackground = "";
+    private String savedOrder = "";
 
     private int deleteWarningTimer;
 
@@ -158,6 +160,9 @@ public class QuestEditorScreen extends Screen {
 
             if (display.getBackground().isPresent()) {
                 this.savedBackground = display.getBackground().get().toString();
+            }
+            if (display instanceof DisplayAccess displayAccess) {
+                this.savedOrder = String.valueOf(displayAccess.getTabOrder());
             }
         }
 
@@ -250,6 +255,7 @@ public class QuestEditorScreen extends Screen {
             savedItems = this.itemsField.getText();
             savedText = this.textField.getText();
             savedBackground = this.backgroundField.getText();
+            savedOrder = this.orderField.getText();
         }
 
         loadAvailableParents();
@@ -289,6 +295,9 @@ public class QuestEditorScreen extends Screen {
             if (this.backgroundField != null) {
                 this.backgroundField.active = text.isEmpty();
             }
+            if (this.orderField != null) {
+                this.orderField.active = text.isEmpty();
+            }
         });
         this.addSelectableChild(this.parentField);
 
@@ -306,16 +315,25 @@ public class QuestEditorScreen extends Screen {
         parentListY = leftY + 25;
         parentListWidth = leftColumnWidth;
 
-        int posFieldWidth = (leftColumnWidth - 5) / 2;
+        int posFieldWidth = (leftColumnWidth - 5) / 3;
         this.positionXField = new TextFieldWidget(this.textRenderer, leftX, leftY, posFieldWidth, 20, Text.literal("Position X"));
         this.positionXField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
+        this.positionXField.setMaxLength(5);
         this.positionXField.setText(String.valueOf(this.initialX));
         this.addSelectableChild(this.positionXField);
 
         this.positionYField = new TextFieldWidget(this.textRenderer, leftX + posFieldWidth + 5, leftY, posFieldWidth, 20, Text.literal("Position Y"));
         this.positionYField.setPlaceholder(Text.literal("0.0").formatted(Formatting.DARK_GRAY));
+        this.positionYField.setMaxLength(5);
         this.positionYField.setText(String.valueOf(this.initialY));
         this.addSelectableChild(this.positionYField);
+
+        this.orderField = new TextFieldWidget(this.textRenderer, leftX + posFieldWidth * 2 + 10, leftY, posFieldWidth, 20, Text.literal("Tab Order"));
+        this.orderField.setPlaceholder(Text.literal("0").formatted(Formatting.DARK_GRAY));
+        this.orderField.setMaxLength(5);
+        this.orderField.setText(this.savedOrder);
+        this.orderField.active = this.parentField.getText().isEmpty();
+        this.addSelectableChild(this.orderField);
         leftY += 32;
 
         this.commandsField = new TextFieldWidget(this.textRenderer, leftX, leftY, leftColumnWidth, 20, Text.literal("Commands"));
@@ -450,6 +468,7 @@ public class QuestEditorScreen extends Screen {
         this.addSelectableChild(this.commandsField);
         this.addSelectableChild(this.itemsField);
         this.addSelectableChild(this.textField);
+        this.addSelectableChild(this.orderField);
         this.addDrawableChild(this.frameButton);
         this.addDrawableChild(this.toastButton);
         this.addDrawableChild(this.chatButton);
@@ -610,6 +629,7 @@ public class QuestEditorScreen extends Screen {
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.parent"), leftX, y + 126, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.background"), leftX, y + 158, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.position"), leftX, y + 190, 0xA0A0A0);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.order"), leftX + 220, y + 190, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.commands"), leftX, y + 222, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.items"), leftX, y + 254, 0xA0A0A0);
         context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.text"), leftX, y + 306, 0xA0A0A0);
@@ -624,6 +644,7 @@ public class QuestEditorScreen extends Screen {
         this.itemsField.render(context, mouseX, mouseY, delta);
         this.textField.render(context, mouseX, mouseY, delta);
         this.backgroundField.render(context, mouseX, mouseY, delta);
+        this.orderField.render(context, mouseX, mouseY, delta);
 
         if (showParentList) {
             renderParentSelectionList(context, mouseX, mouseY);
@@ -856,6 +877,14 @@ public class QuestEditorScreen extends Screen {
             display.put("y_manual", this.initialY);
         }
 
+        if (this.orderField != null && !this.orderField.getText().isEmpty() && this.parentField.getText().isEmpty()) {
+            try {
+                int order = Integer.parseInt(this.orderField.getText());
+                display.put("tab_order", order);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
         advancement.put("display", display);
 
         Map<String, Object> criteria = new LinkedHashMap<>();
@@ -985,16 +1014,30 @@ public class QuestEditorScreen extends Screen {
                         String itemId = trimmed;
                         int count = -1;
 
-                        if (lastColon != -1) {
+                        boolean isTag = trimmed.startsWith("#");
+
+                        if (!isTag && lastColon != -1) {
                             String lastPart = trimmed.substring(lastColon + 1);
                             try {
                                 count = Integer.parseInt(lastPart);
                                 itemId = trimmed.substring(0, lastColon);
                             } catch (NumberFormatException ignored) {
                             }
+                        } else if (isTag && lastColon != -1) {
+                            String lastPart = trimmed.substring(lastColon + 1);
+                            try {
+                                count = Integer.parseInt(lastPart);
+                                itemId = trimmed.substring(0, lastColon);
+                            } catch (NumberFormatException ignored) {
+                                itemId = trimmed;
+                            }
                         }
 
-                        itemEntry.put("items", Collections.singletonList(itemId));
+                        if (itemId.startsWith("#")) {
+                            itemEntry.put("tag", itemId.substring(1));
+                        } else {
+                            itemEntry.put("items", Collections.singletonList(itemId));
+                        }
 
                         if (count > 0) {
                             Map<String, Object> countMap = new LinkedHashMap<>();

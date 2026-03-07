@@ -8,4 +8,7 @@ public interface DisplayAccess {
 
     int getManualY();
 
+    int getTabOrder();
+
+    void setTabOrder(int order);
 }

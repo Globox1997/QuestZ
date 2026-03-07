@@ -32,6 +32,9 @@ import net.questz.init.KeyInit;
 import net.questz.network.packet.QuestPositionPacket;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 @Environment(EnvType.CLIENT)
@@ -396,12 +399,31 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             if (ConfigInit.CONFIG.questAdvancementNamespaceIds.contains(root.getAdvancementEntry().id().getNamespace())) {
                 this.tabs.put(root.getAdvancementEntry(), advancementTab);
 
+                resortTabs();
+
                 if (lastSelectedTabEntry != null && root.getAdvancementEntry().equals(lastSelectedTabEntry)) {
                     this.advancementHandler.selectTab(root.getAdvancementEntry(), true);
-                } else if (this.selectedTab == null && this.tabs.size() == 1 && lastSelectedTabEntry == null) {
+                } else if (this.selectedTab == null) {
                     this.advancementHandler.selectTab(root.getAdvancementEntry(), true);
                 }
             }
+        }
+    }
+
+    private void resortTabs() {
+        List<Map.Entry<AdvancementEntry, QuestTab>> entries = new ArrayList<>(this.tabs.entrySet());
+        entries.sort(Comparator.comparingInt(e -> {
+            AdvancementDisplay display = e.getValue().getDisplay();
+            if (display instanceof DisplayAccess da) {
+                return da.getTabOrder();
+            }
+            return 0;
+        }));
+        this.tabs.clear();
+        int newIndex = 0;
+        for (Map.Entry<AdvancementEntry, QuestTab> entry : entries) {
+            entry.getValue().setIndex(newIndex++);
+            this.tabs.put(entry.getKey(), entry.getValue());
         }
     }
 
@@ -436,7 +458,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void onClear() {
-        this.lastSelectedTabEntry = this.selectedTab != null ? this.selectedTab.getRoot().getAdvancementEntry() : null;
+        this.lastSelectedTabEntry = this.selectedTab != null && this.tabs.size() > 1 ? this.selectedTab.getRoot().getAdvancementEntry() : null;
         this.tabs.clear();
         this.selectedTab = null;
     }

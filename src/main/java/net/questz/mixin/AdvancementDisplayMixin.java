@@ -9,7 +9,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.text.TextCodecs;
 import net.minecraft.util.Identifier;
-import net.questz.QuestzMain;
 import net.questz.access.DisplayAccess;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -31,6 +30,9 @@ public class AdvancementDisplayMixin implements DisplayAccess {
 
     @Unique
     private int manualY = 0;
+
+    @Unique
+    private int tabOrder = 0;
 
     @Shadow
     private float x;
@@ -55,6 +57,16 @@ public class AdvancementDisplayMixin implements DisplayAccess {
         return this.manualY;
     }
 
+    @Override
+    public void setTabOrder(int order) {
+        this.tabOrder = order;
+    }
+
+    @Override
+    public int getTabOrder() {
+        return this.tabOrder;
+    }
+
     @Inject(method = "setPos", at = @At("HEAD"), cancellable = true)
     private void onSetPosMixin(float x, float y, CallbackInfo info) {
         if (this.manualX != 0 || this.manualY != 0) {
@@ -72,15 +84,20 @@ public class AdvancementDisplayMixin implements DisplayAccess {
                 TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
                 Codec.INT.optionalFieldOf("x_manual").forGetter(d -> Optional.empty()),
                 Codec.INT.optionalFieldOf("y_manual").forGetter(d -> Optional.empty()),
+                Codec.INT.optionalFieldOf("tab_order", 0).forGetter(d ->
+                        d instanceof DisplayAccess da ? da.getTabOrder() : 0),
                 Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
                 AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
                 Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
                 Codec.BOOL.optionalFieldOf("announce_to_chat", true).forGetter(AdvancementDisplay::shouldAnnounceToChat),
                 Codec.BOOL.optionalFieldOf("hidden", false).forGetter(AdvancementDisplay::isHidden)
-        ).apply(instance, (icon, title, description, xManual, yManual, background, frame, showToast, announceToChat, hidden) -> {
+        ).apply(instance, (icon, title, description, xManual, yManual, tabOrder, background, frame, showToast, announceToChat, hidden) -> {
             AdvancementDisplay advancementDisplay = new AdvancementDisplay(icon, title, description, background, frame, showToast, announceToChat, hidden);
-            if (xManual.isPresent() && yManual.isPresent() && advancementDisplay instanceof DisplayAccess displayAccess) {
-                displayAccess.setManualPosition(xManual.get(), yManual.get());
+            if (advancementDisplay instanceof DisplayAccess displayAccess) {
+                if (xManual.isPresent() && yManual.isPresent()) {
+                    displayAccess.setManualPosition(xManual.get(), yManual.get());
+                }
+                displayAccess.setTabOrder(tabOrder);
             }
             return advancementDisplay;
         }));
@@ -90,6 +107,7 @@ public class AdvancementDisplayMixin implements DisplayAccess {
     private void toPacketMixin(RegistryByteBuf buf, CallbackInfo info) {
         buf.writeInt(this.manualX);
         buf.writeInt(this.manualY);
+        buf.writeInt(this.tabOrder);
     }
 
     @Inject(method = "fromPacket", at = @At("RETURN"))
@@ -97,10 +115,12 @@ public class AdvancementDisplayMixin implements DisplayAccess {
         if (info.getReturnValue() instanceof DisplayAccess displayAccess) {
             int manualX = buf.readInt();
             int manualY = buf.readInt();
+            int tabOrder = buf.readInt();
 
             if (manualX != 0 || manualY != 0) {
                 displayAccess.setManualPosition(manualX, manualY);
             }
+            displayAccess.setTabOrder(tabOrder);
         }
     }
 

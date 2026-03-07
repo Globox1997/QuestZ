@@ -4,7 +4,7 @@
 
     "gui.questz": "Quests",
     "gui.questz.newQuest": "New Quest",
-    "gui.questz.title": "Titel",
+    "gui.questz.title": "Title",
     "gui.questz.description": "Description",
     "gui.questz.icon": "Icon",
     "gui.questz.save": "Save",
@@ -26,6 +26,7 @@
     "gui.questz.criteriaName": "Criteria Name",
     "gui.questz.scroll": "(Scroll to see more)",
     "gui.questz.position": "Position",
+    "gui.questz.order": "Tab Order",
     "gui.questz.delete_warning": "Cannot delete: other quests depend on this!",
 
     "text.autoconfig.questz.title": "QuestZ Config",
