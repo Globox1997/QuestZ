@@ -11,7 +11,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.advancement.AdvancementTab;
 import net.minecraft.client.gui.screen.advancement.AdvancementTabType;
 import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
-import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
 import net.minecraft.client.texture.TextureManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
@@ -25,7 +24,7 @@ import java.util.Optional;
 @Environment(EnvType.CLIENT)
 public class QuestTab extends AdvancementTab {
     private final MinecraftClient client;
-    private final AdvancementsScreen screen;
+    private final QuestScreen screen;
     private final AdvancementTabType type;
     private int index;
     private final PlacedAdvancement root;
@@ -48,8 +47,7 @@ public class QuestTab extends AdvancementTab {
     private float alpha;
     private boolean initialized;
 
-    public QuestTab(MinecraftClient client, AdvancementsScreen screen, AdvancementTabType type, int index, PlacedAdvancement root, AdvancementDisplay display) {
-
+    public QuestTab(MinecraftClient client, QuestScreen screen, AdvancementTabType type, int index, PlacedAdvancement root, AdvancementDisplay display) {
         super(client, screen, type, index, root, display);
         this.client = client;
         this.screen = screen;
@@ -188,7 +186,7 @@ public class QuestTab extends AdvancementTab {
     }
 
     @Nullable
-    public static QuestTab create(MinecraftClient client, AdvancementsScreen screen, int index, PlacedAdvancement root) {
+    public static QuestTab create(MinecraftClient client, QuestScreen screen, int index, PlacedAdvancement root) {
         Optional<AdvancementDisplay> optional = root.getAdvancement().display();
         if (optional.isEmpty()) {
             return null;
@@ -243,7 +241,7 @@ public class QuestTab extends AdvancementTab {
     }
 
     @Override
-    public AdvancementsScreen getScreen() {
+    public QuestScreen getScreen() {
         return this.screen;
     }
 

@@ -433,9 +433,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
 
     @Override
     public void onDependentAdded(PlacedAdvancement dependent) {
-        QuestTab advancementTab = this.getTab(dependent);
-        if (advancementTab != null) {
-            advancementTab.addAdvancement(dependent);
+        QuestTab questTab = this.getTab(dependent);
+        if (questTab != null) {
+            questTab.addAdvancement(dependent);
         }
     }
 
@@ -473,5 +473,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     private QuestTab getTab(PlacedAdvancement advancement) {
         PlacedAdvancement placedAdvancement = advancement.getRoot();
         return this.tabs.get(placedAdvancement.getAdvancementEntry());
+    }
+
+    public boolean isCreationMode() {
+        return this.creationMode;
     }
 }

@@ -133,7 +133,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public void renderLines(DrawContext context, int x, int y, boolean border) {
-        if (this.parent != null) {
+        if (this.parent != null && (this.tab.getScreen().isCreationMode() || !this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             int i = x + this.parent.x + 13;
             int j = x + this.parent.x + 26 + 4;
             int k = y + this.parent.y + 13;
@@ -163,7 +163,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public void renderWidgets(DrawContext context, int x, int y) {
-        if (!this.display.isHidden() || this.progress != null && this.progress.isDone()) {
+        if (this.tab.getScreen().isCreationMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             float f = this.progress == null ? 0.0F : this.progress.getProgressBarPercentage();
             AdvancementObtainedStatus advancementObtainedStatus;
             if (f >= 1.0F) {
@@ -357,7 +357,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public boolean shouldRender(int originX, int originY, int mouseX, int mouseY) {
-        if (!this.display.isHidden() || this.progress != null && this.progress.isDone()) {
+        if (this.tab.getScreen().isCreationMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             int i = originX + this.x;
             int j = i + 26;
             int k = originY + this.y;
