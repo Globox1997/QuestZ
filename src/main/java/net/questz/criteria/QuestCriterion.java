@@ -34,9 +34,7 @@ public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions>
                         EntityPredicate.LOOT_CONTEXT_PREDICATE_CODEC.optionalFieldOf("player").forGetter(Conditions::player),
                         Identifier.CODEC.fieldOf("object").forGetter(c -> c.objectPredicate().objectId()),
                         Codec.INT.fieldOf("count").forGetter(c -> c.countPredicate().count())
-                ).apply(instance, (player, objectId, count) ->
-                        new Conditions(player, new ObjectPredicate(objectId), new CountPredicate(count))
-                ));
+                ).apply(instance, (player, objectId, count) -> new Conditions(player, new ObjectPredicate(objectId), new CountPredicate(count))));
 
         public boolean matches(ServerPlayerEntity player, @Nullable Item item, @Nullable Block block, @Nullable LivingEntity livingEntity, int code) {
             if (item != null) {
@@ -72,15 +70,9 @@ public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions>
     }
 
     public record ObjectPredicate(Identifier objectId) {
-        public static final Codec<ObjectPredicate> CODEC = RecordCodecBuilder.create(instance ->
-                instance.group(
-                        Identifier.CODEC.fieldOf("object").forGetter(ObjectPredicate::objectId)
-                ).apply(instance, ObjectPredicate::new)
-        );
-
         public boolean test(Object object, int code) {
             return switch (code) {
-                case 0 -> Registries.ITEM.getId((Item) object).equals(this.objectId);
+                case 0, 3 -> Registries.ITEM.getId((Item) object).equals(this.objectId);
                 case 1 -> Registries.BLOCK.getId((Block) object).equals(this.objectId);
                 case 2 -> Registries.ENTITY_TYPE.getId(((LivingEntity) object).getType()).equals(this.objectId);
                 default -> false;
@@ -89,14 +81,9 @@ public class QuestCriterion extends AbstractCriterion<QuestCriterion.Conditions>
     }
 
     public record CountPredicate(int count) {
-        public static final Codec<CountPredicate> CODEC = RecordCodecBuilder.create(instance ->
-                instance.group(
-                        Codec.INT.fieldOf("count").forGetter(CountPredicate::count)
-                ).apply(instance, CountPredicate::new)
-        );
 
         public boolean test(int inputCount) {
-            return this.count == inputCount;
+            return this.count >= inputCount;
         }
     }
 }

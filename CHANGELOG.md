@@ -4,5 +4,6 @@
 - Creation mode visibility
 ### Fixed:
 - Tab deletion 
+- Count issue
 ### Changed:
 - 

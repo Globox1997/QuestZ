@@ -1,33 +1,19 @@
 package net.questz.mixin;
 
-import org.spongepowered.asm.mixin.Final;
+import net.minecraft.block.Block;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.Item;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.stat.Stat;
+import net.minecraft.stat.Stats;
+import net.questz.init.CriteriaInit;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.block.Block;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.Item;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.stat.ServerStatHandler;
-import net.minecraft.stat.Stat;
-import net.minecraft.stat.Stats;
-import net.questz.init.CriteriaInit;
-
 @Mixin(ServerPlayerEntity.class)
 public class ServerPlayerEntityMixin {
-
-    @Shadow
-    public ServerPlayNetworkHandler networkHandler;
-
-    @Shadow
-    @Mutable
-    @Final
-    private ServerStatHandler statHandler;
 
     // Gets called pretty often
     @Inject(method = "increaseStat", at = @At("TAIL"))
