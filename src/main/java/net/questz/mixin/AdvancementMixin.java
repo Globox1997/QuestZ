@@ -51,7 +51,6 @@ public class AdvancementMixin implements AdvancementAccess {
     @Inject(method = "write", at = @At("TAIL"))
     private void writeMixin(RegistryByteBuf buf, CallbackInfo info) {
         boolean isQuestz = this.parent.map(identifier -> {
-
             for (String namespace : ConfigInit.CONFIG.questAdvancementNamespaceIds) {
                 if (identifier.getNamespace().equals(namespace)) {
                     return true;
@@ -62,15 +61,12 @@ public class AdvancementMixin implements AdvancementAccess {
         }).orElse(false);
 
         buf.writeBoolean(this.parent.isEmpty() || isQuestz);
-        if (this.parent.isEmpty() ||isQuestz) {
+        if (this.parent.isEmpty() || isQuestz) {
             PacketCodecs.codec(AdvancementRewards.CODEC).encode(buf, this.rewards);
             buf.writeVarInt(this.criteria.size());
             this.criteria.forEach((name, criterion) -> {
                 buf.writeString(name, 262144);
-                JsonElement json = AdvancementCriterion.CODEC
-                        .encodeStart(RegistryOps.of(JsonOps.INSTANCE, buf.getRegistryManager()), criterion)
-                        .result()
-                        .orElse(null);
+                JsonElement json = AdvancementCriterion.CODEC.encodeStart(RegistryOps.of(JsonOps.INSTANCE, buf.getRegistryManager()), criterion).result().orElse(null);
                 buf.writeString(json != null ? json.toString() : "{}", 262144);
             });
         }
@@ -81,8 +77,9 @@ public class AdvancementMixin implements AdvancementAccess {
         Advancement result = info.getReturnValue();
 
         boolean hasExtraData = buf.readBoolean();
-        if (!hasExtraData) return;
-
+        if (!hasExtraData) {
+            return;
+        }
         AdvancementRewards rewards;
         try {
             rewards = PacketCodecs.codec(AdvancementRewards.CODEC).decode(buf);
@@ -96,13 +93,12 @@ public class AdvancementMixin implements AdvancementAccess {
             for (int i = 0; i < size; i++) {
                 String name = buf.readString(262144);
                 String jsonStr = buf.readString(262144);
-                if (jsonStr.equals("{}")) continue;
+                if (jsonStr.equals("{}")) {
+                    continue;
+                }
                 try {
                     JsonElement json = JsonParser.parseString(jsonStr);
-                    AdvancementCriterion.CODEC
-                            .parse(RegistryOps.of(JsonOps.INSTANCE, buf.getRegistryManager()), json)
-                            .result()
-                            .ifPresent(criterion -> criteria.put(name, criterion));
+                    AdvancementCriterion.CODEC.parse(RegistryOps.of(JsonOps.INSTANCE, buf.getRegistryManager()), json).result().ifPresent(criterion -> criteria.put(name, criterion));
                 } catch (Exception ignored) {
                 }
             }
