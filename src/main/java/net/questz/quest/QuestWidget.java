@@ -20,12 +20,17 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.loot.condition.EntityPropertiesLootCondition;
+import net.minecraft.loot.condition.LocationCheckLootCondition;
 import net.minecraft.loot.condition.LootCondition;
+import net.minecraft.loot.condition.MatchToolLootCondition;
 import net.minecraft.predicate.BlockPredicate;
 import net.minecraft.predicate.entity.EntityPredicate;
+import net.minecraft.predicate.entity.LocationPredicate;
 import net.minecraft.predicate.entity.LootContextPredicate;
 import net.minecraft.predicate.item.ItemPredicate;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntryList;
 import net.minecraft.text.*;
 import net.minecraft.util.Colors;
@@ -33,6 +38,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.biome.Biome;
 import net.questz.access.RewardAccess;
 import net.questz.criteria.QuestCriterion;
 import net.questz.init.ConfigInit;
@@ -133,7 +139,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public void renderLines(DrawContext context, int x, int y, boolean border) {
-        if (this.parent != null && (this.tab.getScreen().isCreationMode() || !this.display.isHidden() || this.progress != null && this.progress.isDone())) {
+        if (this.parent != null && (this.tab.getScreen().isEditorMode() || !this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             int i = x + this.parent.x + 13;
             int j = x + this.parent.x + 26 + 4;
             int k = y + this.parent.y + 13;
@@ -163,7 +169,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public void renderWidgets(DrawContext context, int x, int y) {
-        if (this.tab.getScreen().isCreationMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
+        if (this.tab.getScreen().isEditorMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             float f = this.progress == null ? 0.0F : this.progress.getProgressBarPercentage();
             AdvancementObtainedStatus advancementObtainedStatus;
             if (f >= 1.0F) {
@@ -357,7 +363,7 @@ public class QuestWidget extends AdvancementWidget {
 
     @Override
     public boolean shouldRender(int originX, int originY, int mouseX, int mouseY) {
-        if (this.tab.getScreen().isCreationMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
+        if (this.tab.getScreen().isEditorMode() || (!this.display.isHidden() || this.progress != null && this.progress.isDone())) {
             int i = originX + this.x;
             int j = i + 26;
             int k = originY + this.y;
@@ -433,6 +439,7 @@ public class QuestWidget extends AdvancementWidget {
 
                 if (criterion.trigger() instanceof InventoryChangedCriterion) {
                     InventoryChangedCriterion.Conditions conditions = (InventoryChangedCriterion.Conditions) criterion.conditions();
+
                     List<ItemPredicate> itemPredicates = conditions.items();
                     if (!itemPredicates.isEmpty()) {
                         for (ItemPredicate predicate : itemPredicates) {
@@ -446,6 +453,9 @@ public class QuestWidget extends AdvancementWidget {
                                 String itemName = item.getName().getString();
                                 descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
                                 pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
+                            } else {
+                                // TODO: Tag issue probably not loaded when tags get synced
+                                // resolveTagForDisplay(predicate, criterionName, statusColor, descriptionParts, pendingItems);
                             }
                         }
                     } else {
@@ -585,6 +595,73 @@ public class QuestWidget extends AdvancementWidget {
                                     () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
                     addItemFromPredicate(conditions.item().orElse(null), criterionName, statusColor, descriptionParts, pendingItems);
 
+                } else if (criterion.trigger() instanceof TickCriterion) {
+                    var conditions = (TickCriterion.Conditions) criterion.conditions();
+
+                    if (conditions.player().isPresent()) {
+                        getLocationFromLootContext(conditions.player()).ifPresentOrElse(
+                                locationText -> descriptionParts.add(locationText.copy().formatted(statusColor)),
+                                () -> descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor)));
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
+                } else if (criterion.trigger() instanceof ItemCriterion) {
+                    var conditions = (ItemCriterion.Conditions) criterion.conditions();
+                    boolean added = false;
+
+                    if (conditions.location().isPresent()) {
+                        List<LootCondition> locationConditions = ((LootContextPredicateAccessor) conditions.location().get()).getConditions();
+
+                        for (LootCondition lootCondition : locationConditions) {
+                            if (lootCondition instanceof LocationCheckLootCondition locationCheck) {
+                                LocationPredicate locationPred = locationCheck.predicate().get();
+
+                                if (locationPred.block().isPresent()) {
+                                    var blockPredicate = locationPred.block().get();
+                                    if (blockPredicate.blocks().isPresent() && blockPredicate.blocks().get().size() > 0) {
+                                        Block block = blockPredicate.blocks().get().get(0).value();
+                                        String blockName = block.getName().getString();
+                                        descriptionParts.add(Text.literal("    " + blockName).formatted(statusColor));
+                                        pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(block.asItem()), blockName));
+                                        added = true;
+                                    }
+                                }
+
+                                if (locationPred.biomes().isPresent()) {
+                                    Registry<Biome> registry = this.client.player.getWorld().getRegistryManager().get(RegistryKeys.BIOME);
+
+                                    Identifier biomeId = registry.getId(locationPred.biomes().get().get(0).value());
+                                    Text biomeName = Text.translatable("biome." + biomeId.getNamespace() + "." + biomeId.getPath());
+
+                                    descriptionParts.add(Text.literal("    ").append(biomeName).formatted(statusColor));
+                                    added = true;
+                                }
+                            }
+
+                            if (lootCondition instanceof MatchToolLootCondition matchTool) {
+                                ItemPredicate itemPred = matchTool.predicate().get();
+
+                                if (itemPred.items().isPresent() && itemPred.items().get().size() > 0) {
+                                    Item item = itemPred.items().get().get(0).value();
+                                    int count = 1;
+                                    if (itemPred.count().min().isPresent()) {
+                                        count = itemPred.count().min().get();
+                                    }
+                                    String itemName = item.getName().getString();
+                                    descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+                                    pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
+                                    added = true;
+                                } else if (itemPred.items().isEmpty()) {
+                                    // resolveTagForDisplay(itemPred, criterionName, statusColor, descriptionParts, pendingItems);
+                                    // added = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!added) {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
                 } else if (criterion.trigger() instanceof BrewedPotionCriterion) {
                     descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                 } else {
@@ -594,13 +671,50 @@ public class QuestWidget extends AdvancementWidget {
         }
 
         MutableText finalDescription = Text.literal("");
-        for (
-                int i = 0; i < descriptionParts.size(); i++) {
-            if (i > 0) finalDescription.append("\n");
+        for (int i = 0; i < descriptionParts.size(); i++) {
+            if (i > 0) {
+                finalDescription.append("\n");
+            }
             finalDescription.append(descriptionParts.get(i));
         }
 
         setWidthAndDescription(finalDescription, pendingItems, pendingEntities);
+    }
+
+    private void resolveTagForDisplay(ItemPredicate predicate, String fallbackName, Formatting statusColor, List<Text> descriptionParts, List<ItemRenderInfo> pendingItems) {
+        try {
+            var registryManager = this.client.player != null ? this.client.player.getRegistryManager() : null;
+            if (registryManager == null) {
+                descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+                return;
+            }
+
+            var itemRegistry = registryManager.get(RegistryKeys.ITEM);
+
+            List<Item> tagItems = new ArrayList<>();
+
+            itemRegistry.streamEntries().forEach(entry -> {
+                ItemStack testStack = new ItemStack(entry.value());
+                if (predicate.test(testStack)) {
+                    tagItems.add(entry.value());
+                }
+            });
+
+            if (!tagItems.isEmpty()) {
+                Item randomItem = tagItems.get((int) (Math.random() * tagItems.size()));
+                int count = 1;
+                if (predicate.count().min().isPresent()) {
+                    count = predicate.count().min().get();
+                }
+                String itemName = randomItem.getName().getString();
+                descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+                pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(randomItem, count), itemName));
+            } else {
+                descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+            }
+        } catch (Exception e) {
+            descriptionParts.add(Text.literal("  • " + fallbackName).formatted(statusColor));
+        }
     }
 
     private void setWidthAndDescription(Text description, List<ItemRenderInfo> pendingItems, List<EntityRenderInfo> pendingEntities) {
@@ -767,6 +881,49 @@ public class QuestWidget extends AdvancementWidget {
         descriptionParts.add(Text.literal("    " + entityName).formatted(statusColor));
         descriptionParts.add(Text.literal(""));
         pendingEntities.add(new EntityRenderInfo(-1, 2, entityType));
+    }
+
+    private Optional<Text> getLocationFromLootContext(Optional<LootContextPredicate> lootContext) {
+        if (lootContext.isEmpty()) return Optional.empty();
+
+        List<LootCondition> conditions = ((LootContextPredicateAccessor) lootContext.get()).getConditions();
+
+        for (LootCondition condition : conditions) {
+            if (condition instanceof EntityPropertiesLootCondition entityProps) {
+                if (entityProps.predicate().isPresent()) {
+                    EntityPredicate predicate = entityProps.predicate().get();
+
+                    if (predicate.location().located().isPresent()) {
+                        LocationPredicate location = predicate.location().located().get();
+
+                        if (location.biomes().isPresent()) {
+                            Registry<Biome> registry = this.client.player.getWorld().getRegistryManager().get(RegistryKeys.BIOME);
+
+                            Identifier biomeId = registry.getId(location.biomes().get().get(0).value());
+                            Text biomeName = Text.translatable("biome." + biomeId.getNamespace() + "." + biomeId.getPath());
+                            return Optional.of(Text.literal("    ").append(biomeName));
+                        }
+
+                        if (location.dimension().isPresent()) {
+                            Identifier dimId = location.dimension().get().getValue();
+                            String dimName = dimId.getPath().replace("_", " ");
+                            dimName = Character.toUpperCase(dimName.charAt(0)) + dimName.substring(1);
+                            return Optional.of(Text.literal("    " + dimName));
+                        }
+
+                        if (location.block().isPresent()) {
+                            var blockPredicate = location.block().get();
+                            if (blockPredicate.blocks().isPresent() && blockPredicate.blocks().get().size() > 0) {
+                                Block block = blockPredicate.blocks().get().get(0).value();
+                                return Optional.of(Text.literal("    ").append(block.getName()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     private Optional<EntityType<?>> getEntityTypeFromLootContext(Optional<LootContextPredicate> lootContext) {

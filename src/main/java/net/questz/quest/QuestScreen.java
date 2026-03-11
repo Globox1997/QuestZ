@@ -53,17 +53,17 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     private QuestTab selectedTab;
     private boolean movingTab;
 
-    private boolean creationMode = false;
+    private boolean editorMode = false;
 
     private QuestWidget draggedWidget = null;
     private float dragWidgetX = 0;
     private float dragWidgetY = 0;
     private boolean isDraggingAdvancement = false;
 
-    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab, boolean creationMode) {
+    public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab, boolean editorMode) {
         this(advancementHandler, parent, selectedTab);
         this.selectedTab = selectedTab;
-        this.creationMode = creationMode;
+        this.editorMode = editorMode;
     }
 
     public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab) {
@@ -131,12 +131,12 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                 }
             }
             if (isPointWithinBounds(i + 237, j + 2, 15, 12, mouseX, mouseY) && this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
-                this.creationMode = !this.creationMode;
+                this.editorMode = !this.editorMode;
                 this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
 
-            if (this.creationMode && this.selectedTab != null) {
+            if (this.editorMode && this.selectedTab != null) {
                 QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
                 if (clickedWidget != null) {
                     this.draggedWidget = clickedWidget;
@@ -157,7 +157,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         }
 
         // Copy advancement to new advancement
-        if (button == 2 && this.creationMode) {
+        if (button == 2 && this.editorMode) {
             QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
             if (clickedWidget != null) {
                 this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
@@ -167,7 +167,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             }
         }
 
-        if (isPointWithinBounds(i + 9, j + 18, 238, 179, mouseX, mouseY) && button == 1 && this.creationMode) {
+        if (isPointWithinBounds(i + 9, j + 18, 238, 179, mouseX, mouseY) && button == 1 && this.editorMode) {
             this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
 
             int screenX = (this.width - 256) / 2;
@@ -223,7 +223,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             return false;
         }
 
-        if (this.isDraggingAdvancement && this.draggedWidget != null && this.creationMode) {
+        if (this.isDraggingAdvancement && this.draggedWidget != null && this.editorMode) {
             if (this.selectedTab != null) {
                 float scale = this.selectedTab.getTabScale();
                 double unitFactor = 28.0;
@@ -341,10 +341,10 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             this.drawWidgetTooltip(context, mouseX, mouseY, i, j);
         }
         if (this.client != null && this.client.player != null && this.client.player.isCreativeLevelTwoOp()) {
-            context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.creationMode ? 0 : 16, 0, 16, 16, 32, 16);
+            context.drawTexture(CREATION_MODE_TEXTURE, i + 237, j + 2, 16, 16, this.editorMode ? 0 : 16, 0, 16, 16, 32, 16);
         }
 
-        if (this.isDraggingAdvancement && this.draggedWidget != null && this.creationMode) {
+        if (this.isDraggingAdvancement && this.draggedWidget != null && this.editorMode) {
             renderDragFeedback(context, mouseX, mouseY);
         }
     }
@@ -475,7 +475,7 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         return this.tabs.get(placedAdvancement.getAdvancementEntry());
     }
 
-    public boolean isCreationMode() {
-        return this.creationMode;
+    public boolean isEditorMode() {
+        return this.editorMode;
     }
 }

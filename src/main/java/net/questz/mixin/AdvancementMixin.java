@@ -57,7 +57,6 @@ public class AdvancementMixin implements AdvancementAccess {
                 }
             }
             return false;
-
         }).orElse(false);
 
         buf.writeBoolean(this.parent.isEmpty() || isQuestz);
