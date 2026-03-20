@@ -13,6 +13,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.advancement.AdvancementObtainedStatus;
 import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -308,7 +310,6 @@ public class QuestWidget extends AdvancementWidget {
                 context.getMatrices().pop();
             }
         }
-
         for (ItemRenderInfo info : this.itemRewardRenderList) {
             if (info.lineIndex == lineIndex) {
                 context.getMatrices().push();
@@ -675,8 +676,18 @@ public class QuestWidget extends AdvancementWidget {
                     if (!added) {
                         descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                     }
-                } else if (criterion.trigger() instanceof BrewedPotionCriterion) {
-                    descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                } else if (criterion.trigger() instanceof BrewedPotionCriterion brewedPotionCriterion) {
+                    var conditions = (BrewedPotionCriterion.Conditions) criterion.conditions();
+
+                    if (conditions.potion().isPresent()) {
+                        ItemStack itemStack = new ItemStack(Items.POTION);
+                        itemStack.set(DataComponentTypes.POTION_CONTENTS, new PotionContentsComponent(conditions.potion().get()));
+                        String itemName = itemStack.getName().getString();
+                        descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
+                        pendingItems.add(new ItemRenderInfo(-1, 2, itemStack, itemName));
+                    } else {
+                        descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
+                    }
                 } else {
                     descriptionParts.add(Text.literal("  • " + criterionName).formatted(statusColor));
                 }
@@ -747,10 +758,7 @@ public class QuestWidget extends AdvancementWidget {
             l += this.client.textRenderer.getWidth(progressText);
         }
 
-        this.description = new ArrayList<>(Language.getInstance().reorder(
-                this.wrapDescription(Texts.setStyleIfAbsent(description.copy(),
-                        Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)
-        ));
+        this.description = new ArrayList<>(Language.getInstance().reorder(this.wrapDescription(Texts.setStyleIfAbsent(description.copy(), Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)));
 
         for (ItemRenderInfo pendingItem : pendingItems) {
             String searchText = pendingItem.itemName;
@@ -764,12 +772,7 @@ public class QuestWidget extends AdvancementWidget {
                 });
 
                 if (lineText.toString().contains(searchText) && lineText.toString().split(" ").length - 4 == searchText.split(" ").length) {
-                    this.itemRenderList.add(new ItemRenderInfo(
-                            lineIndex,
-                            pendingItem.xOffset,
-                            pendingItem.itemStack,
-                            pendingItem.itemName
-                    ));
+                    this.itemRenderList.add(new ItemRenderInfo(lineIndex, pendingItem.xOffset, pendingItem.itemStack, pendingItem.itemName));
                     break;
                 }
             }
