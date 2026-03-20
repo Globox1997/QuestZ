@@ -492,6 +492,13 @@ public class QuestEditorScreen extends Screen {
         for (int i = scrollOffset; i < criteriaEntries.size(); i++) {
             CriteriaEntry entry = criteriaEntries.get(i);
 
+            entry.nameField = null;
+            entry.triggerButton = null;
+            entry.removeButton = null;
+            entry.overrideCheckbox = null;
+            entry.displayOverrideField = null;
+            entry.dynamicFields.clear();
+
             int entryHeight = calculateEntryHeight(entry);
             if (criteriaY + entryHeight > maxCriteriaY) {
                 break;
@@ -503,10 +510,8 @@ public class QuestEditorScreen extends Screen {
 
     private int calculateEntryHeight(CriteriaEntry entry) {
         TriggerConfig config = TriggerConfig.get(entry.trigger);
-        int lines = 3;
-        lines += config.fields.size();
-        lines += 1; // Override
-        return lines * 25 + 10;
+        int rows = 2 + config.fields.size();
+        return rows * 25 + 10;
     }
 
     private int renderCriteriaEntry(CriteriaEntry entry, int rightX, int rightColumnWidth, int startY) {
