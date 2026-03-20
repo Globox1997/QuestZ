@@ -1,6 +1,7 @@
 package net.questz.mixin;
 
-import com.google.gson.*;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.advancement.Advancement;
 import net.minecraft.advancement.AdvancementCriterion;
@@ -11,13 +12,17 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.util.Identifier;
 import net.questz.access.AdvancementAccess;
 import net.questz.init.ConfigInit;
-import org.spongepowered.asm.mixin.*;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -86,7 +91,7 @@ public class AdvancementMixin implements AdvancementAccess {
             rewards = AdvancementRewards.NONE;
         }
 
-        Map<String, AdvancementCriterion<?>> criteria = new HashMap<>();
+        Map<String, AdvancementCriterion<?>> criteria = new LinkedHashMap<>();
         try {
             int size = buf.readVarInt();
             for (int i = 0; i < size; i++) {
@@ -106,6 +111,11 @@ public class AdvancementMixin implements AdvancementAccess {
 
         ((AdvancementAccess) (Object) result).questz$setRewards(rewards);
         ((AdvancementAccess) (Object) result).questz$setCriteria(criteria);
+    }
+
+    @ModifyArg(method = "<init>(Ljava/util/Optional;Ljava/util/Optional;Lnet/minecraft/advancement/AdvancementRewards;Ljava/util/Map;Lnet/minecraft/advancement/AdvancementRequirements;Z)V", at = @At(value = "INVOKE", target = "Ljava/util/Map;copyOf(Ljava/util/Map;)Ljava/util/Map;"))
+    private static Map<?, ?> preserveOrder(Map<?, ?> original) {
+        return new LinkedHashMap<>(original);
     }
 
 }
