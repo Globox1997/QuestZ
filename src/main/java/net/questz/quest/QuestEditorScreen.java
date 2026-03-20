@@ -16,6 +16,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.StringHelper;
 import net.questz.access.CriterionAccess;
 import net.questz.access.DisplayAccess;
 import net.questz.access.RewardAccess;
@@ -106,7 +107,7 @@ public class QuestEditorScreen extends Screen {
         int y = 0;
         if (advancement.getAdvancement().display().isPresent()) {
             AdvancementDisplay display = advancement.getAdvancement().display().get();
-            if (display instanceof DisplayAccess access && access.getManualX() != 0) {
+            if (display instanceof DisplayAccess access && (access.getManualX() != 0 || advancement.getAdvancement().isRoot())) {
                 x = access.getManualX() + 1;
                 y = access.getManualY();
             } else {
@@ -1593,7 +1594,6 @@ public class QuestEditorScreen extends Screen {
         @Override
         public void write(String text) {
             String string = text.equals("\n") ? text : this.manualStrip(text);
-
             int i = Math.min(((TextFieldWidgetAccessor) this).getSelectionStart(), ((TextFieldWidgetAccessor) this).getSelectionEnd());
             int j = Math.max(((TextFieldWidgetAccessor) this).getSelectionStart(), ((TextFieldWidgetAccessor) this).getSelectionEnd());
             int k = ((TextFieldWidgetAccessor) this).getMaxLength() - this.getText().length() - (i - j);
@@ -1606,16 +1606,18 @@ public class QuestEditorScreen extends Screen {
                 }
 
                 String newText = new StringBuilder(this.getText()).replace(i, j, string).toString();
+                int newCursorPos = i + l;
                 this.setText(newText);
-                this.setSelectionStart(i + l);
-                this.setSelectionEnd(((TextFieldWidgetAccessor) this).getSelectionStart());
+                this.setCursor(newCursorPos, false);
+                this.setSelectionStart(newCursorPos);
+                this.setSelectionEnd(newCursorPos);
             }
         }
 
         private String manualStrip(String text) {
             StringBuilder sb = new StringBuilder();
             for (char c : text.toCharArray()) {
-                if (net.minecraft.util.StringHelper.isValidChar(c) || c == '\n') {
+                if (StringHelper.isValidChar(c) || c == '\n') {
                     sb.append(c);
                 }
             }
@@ -1661,7 +1663,8 @@ public class QuestEditorScreen extends Screen {
                     context.fill(cursorX, this.getY() + lineY, cursorX + 1, this.getY() + lineY + this.textRenderer.fontHeight, 0xFFD0D0D0);
                     return;
                 }
-                currentChars += line.length() + (fullText.length() > currentChars + line.length() ? 1 : 0);
+                boolean hasNewline = (currentChars + line.length()) < fullText.length() && fullText.charAt(currentChars + line.length()) == '\n';
+                currentChars += line.length() + (hasNewline ? 1 : 0);
                 lineY += this.textRenderer.fontHeight + 2;
             }
 
@@ -1674,9 +1677,7 @@ public class QuestEditorScreen extends Screen {
 
         private List<String> wrapText(String text, int maxWidth) {
             List<String> lines = new ArrayList<>();
-            if (text.isEmpty()) {
-                return lines;
-            }
+            if (text.isEmpty()) return lines;
 
             String[] paragraphs = text.split("\n", -1);
             for (String paragraph : paragraphs) {
@@ -1685,32 +1686,41 @@ public class QuestEditorScreen extends Screen {
                     continue;
                 }
 
-                StringBuilder currentLine = new StringBuilder();
-                String[] words = paragraph.split(" ");
-
-                for (String word : words) {
-                    String testLine = currentLine.isEmpty() ? word : currentLine + " " + word;
-                    if (this.textRenderer.getWidth(testLine) <= maxWidth) {
-                        if (!currentLine.isEmpty()) {
-                            currentLine.append(" ");
+                List<String> tokens = new ArrayList<>();
+                StringBuilder token = new StringBuilder();
+                for (char c : paragraph.toCharArray()) {
+                    if (c == ' ') {
+                        if (!token.isEmpty()) {
+                            tokens.add(token.toString());
+                            token = new StringBuilder();
                         }
-                        currentLine.append(word);
+                        tokens.add(" ");
+                    } else {
+                        token.append(c);
+                    }
+                }
+                if (!token.isEmpty()) tokens.add(token.toString());
+
+                StringBuilder currentLine = new StringBuilder();
+                for (String t : tokens) {
+                    String testLine = currentLine + t;
+                    if (this.textRenderer.getWidth(testLine) <= maxWidth) {
+                        currentLine.append(t);
                     } else {
                         if (!currentLine.isEmpty()) {
                             lines.add(currentLine.toString());
-                            currentLine = new StringBuilder(word);
+                            currentLine = new StringBuilder();
+                            if (!t.equals(" ")) currentLine.append(t);
                         } else {
-                            lines.add(word);
+                            lines.add(t);
                         }
                     }
                 }
-
-                if (!currentLine.isEmpty()) {
-                    lines.add(currentLine.toString());
-                }
+                if (!currentLine.isEmpty()) lines.add(currentLine.toString());
             }
 
             return lines;
         }
     }
+
 }
