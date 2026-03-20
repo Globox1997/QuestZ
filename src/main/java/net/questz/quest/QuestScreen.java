@@ -58,6 +58,8 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
     private QuestWidget draggedWidget = null;
     private float dragWidgetX = 0;
     private float dragWidgetY = 0;
+    private int dragStartX = 0;
+    private int dragStartY = 0;
     private boolean isDraggingAdvancement = false;
 
     public QuestScreen(ClientAdvancementManager advancementHandler, @Nullable Screen parent, @Nullable QuestTab selectedTab, boolean editorMode) {
@@ -145,6 +147,9 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                         AdvancementDisplay display = clickedWidget.getAdvancement().getAdvancement().display().get();
                         this.dragWidgetX = display.getX();
                         this.dragWidgetY = display.getY();
+
+                        this.dragStartX = (int) display.getX();
+                        this.dragStartY = (int) display.getY();
                     }
 
                     this.isDraggingAdvancement = true;
@@ -156,7 +161,6 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
             }
         }
 
-        // Copy advancement to new advancement
         if (button == 2 && this.editorMode) {
             QuestWidget clickedWidget = getWidgetAtMouse(mouseX, mouseY);
             if (clickedWidget != null) {
@@ -205,7 +209,19 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
                     this.selectedTab.updateWidgetPosition(this.draggedWidget);
                 }
 
-                ClientPlayNetworking.send(new QuestPositionPacket(this.draggedWidget.getAdvancement().getAdvancementEntry().id(), (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getX(), (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getY()));
+                int newX = (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getX();
+                int newY = (int) this.draggedWidget.getAdvancement().getAdvancement().display().get().getY();
+
+                List<QuestPositionPacket.ChildMove> childMoves = new ArrayList<>();
+
+                if (Screen.hasControlDown()) {
+                    int deltaX = newX - this.dragStartX;
+                    int deltaY = newY - this.dragStartY;
+                    collectChildMoves(this.draggedWidget.getAdvancement(), deltaX, deltaY, childMoves);
+                }
+
+                ClientPlayNetworking.send(new QuestPositionPacket(this.draggedWidget.getAdvancement().getAdvancementEntry().id(), newX, newY, childMoves));
+
             }
 
             this.draggedWidget = null;
@@ -213,6 +229,29 @@ public class QuestScreen extends AdvancementsScreen implements ClientAdvancement
         }
 
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void collectChildMoves(PlacedAdvancement advancement, int deltaX, int deltaY, List<QuestPositionPacket.ChildMove> moves) {
+        for (PlacedAdvancement child : advancement.getChildren()) {
+            if (child.getAdvancement().display().isEmpty()) {
+                continue;
+            }
+            AdvancementDisplay childDisplay = child.getAdvancement().display().get();
+            int childNewX = (int) childDisplay.getX() + deltaX;
+            int childNewY = (int) childDisplay.getY() + deltaY;
+
+            if (childDisplay instanceof DisplayAccess access) {
+                access.setManualPosition(childNewX, childNewY);
+            }
+            QuestWidget childWidget = getAdvancementWidget(child);
+            if (childWidget != null) {
+                childWidget.updatePosition(childNewX, childNewY);
+            }
+
+            moves.add(new QuestPositionPacket.ChildMove(child.getAdvancementEntry().id(), childNewX, childNewY));
+
+            collectChildMoves(child, deltaX, deltaY, moves);
+        }
     }
 
     @Override

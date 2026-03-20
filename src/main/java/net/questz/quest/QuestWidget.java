@@ -750,27 +750,24 @@ public class QuestWidget extends AdvancementWidget {
     }
 
     private void setWidthAndDescription(Text description, List<ItemRenderInfo> pendingItems, List<EntityRenderInfo> pendingEntities) {
-        int i = advancement.getAdvancement().requirements().getLength();
-        int j = String.valueOf(i).length();
-        int k = i > 1 ? client.textRenderer.getWidth("  ") +
-                client.textRenderer.getWidth("0") * j * 2 + client.textRenderer.getWidth("/") : 0;
-        int l = 29 + client.textRenderer.getWidth(this.title) + k;
+        int requirementsCount = advancement.getAdvancement().requirements().getLength();
 
-        if (client.textRenderer.getWidth(description) > l) {
-            l = Math.min(ConfigInit.CONFIG.maxTextWidth, client.textRenderer.getWidth(description));
+        int progressWidth = 0;
+        if (requirementsCount > 1) {
+            Text progressText = Text.translatable("advancements.progress", requirementsCount, requirementsCount);
+            progressWidth = this.client.textRenderer.getWidth(progressText) + 8;
         }
+
+        int l = 29 + client.textRenderer.getWidth(this.title) + progressWidth;
         l = MathHelper.clamp(l, ConfigInit.CONFIG.minTextWidth, ConfigInit.CONFIG.maxTextWidth);
 
-        if (i > 1) {
-            Text progressText = Text.translatable("advancements.progress", i, i);
-            l += this.client.textRenderer.getWidth(progressText);
-        }
-
-        this.description = new ArrayList<>(Language.getInstance().reorder(this.wrapDescription(Texts.setStyleIfAbsent(description.copy(), Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)));
+        this.description = new ArrayList<>(Language.getInstance().reorder(
+                this.wrapDescription(Texts.setStyleIfAbsent(description.copy(),
+                        Style.EMPTY.withColor(display.getFrame().getTitleFormat())), l)
+        ));
 
         for (ItemRenderInfo pendingItem : pendingItems) {
             String searchText = pendingItem.itemName;
-
             for (int lineIndex = 0; lineIndex < this.description.size(); lineIndex++) {
                 OrderedText line = this.description.get(lineIndex);
                 StringBuilder lineText = new StringBuilder();
@@ -778,7 +775,6 @@ public class QuestWidget extends AdvancementWidget {
                     lineText.appendCodePoint(codePoint);
                     return true;
                 });
-
                 if (lineText.toString().contains(searchText) && lineText.toString().split(" ").length - 4 == searchText.split(" ").length) {
                     this.itemRenderList.add(new ItemRenderInfo(lineIndex, pendingItem.xOffset, pendingItem.itemStack, pendingItem.itemName));
                     break;
@@ -790,7 +786,6 @@ public class QuestWidget extends AdvancementWidget {
 
         for (EntityRenderInfo pendingEntity : pendingEntities) {
             String searchText = pendingEntity.entityName;
-
             for (int lineIndex = 0; lineIndex < this.description.size(); lineIndex++) {
                 OrderedText line = this.description.get(lineIndex);
                 StringBuilder lineText = new StringBuilder();
@@ -798,7 +793,6 @@ public class QuestWidget extends AdvancementWidget {
                     lineText.appendCodePoint(codePoint);
                     return true;
                 });
-
                 if (lineText.toString().contains(searchText)) {
                     this.entityRenderList.add(new EntityRenderInfo(lineIndex, pendingEntity.xOffset, pendingEntity.entityType));
                     break;
@@ -809,6 +803,9 @@ public class QuestWidget extends AdvancementWidget {
         for (OrderedText orderedText : this.description) {
             l = Math.max(l, client.textRenderer.getWidth(orderedText));
         }
+
+        l = MathHelper.clamp(l, ConfigInit.CONFIG.minTextWidth, ConfigInit.CONFIG.maxTextWidth);
+
         this.width = l + 8;
     }
 
@@ -975,7 +972,8 @@ public class QuestWidget extends AdvancementWidget {
         try {
             ComponentChanges changes = componentPredicate.toChanges();
             stack.applyChanges(changes);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     private static class ItemRenderInfo {
