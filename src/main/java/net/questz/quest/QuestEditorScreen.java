@@ -164,6 +164,7 @@ public class QuestEditorScreen extends Screen {
             if (display instanceof DisplayAccess displayAccess) {
                 this.savedOrder = String.valueOf(displayAccess.getTabOrder());
             }
+
         }
 
         if (placedAdvancement.getParent() != null) {
@@ -233,6 +234,14 @@ public class QuestEditorScreen extends Screen {
                 Map<String, String> conditionData = CriterionDataExtractor.extractConditionData(criterionJson);
 
                 criteriaEntry.fieldValues.putAll(conditionData);
+
+                if (advancement.display().isPresent() && advancement.display().get() instanceof DisplayAccess displayAccess) {
+                    Map<String, String> overrides = displayAccess.getCriterionOverrides();
+                    if (overrides.containsKey(criteriaEntry.name)) {
+                        criteriaEntry.displayOverrideText = overrides.get(criteriaEntry.name);
+                        criteriaEntry.useDisplayOverride = true;
+                    }
+                }
 
                 criteriaEntries.add(criteriaEntry);
             }
@@ -496,6 +505,7 @@ public class QuestEditorScreen extends Screen {
         TriggerConfig config = TriggerConfig.get(entry.trigger);
         int lines = 3;
         lines += config.fields.size();
+        lines += 1; // Override
         return lines * 25 + 10;
     }
 
@@ -503,6 +513,8 @@ public class QuestEditorScreen extends Screen {
         entry.nameField = null;
         entry.triggerButton = null;
         entry.removeButton = null;
+        entry.overrideCheckbox = null;
+        entry.displayOverrideField = null;
         entry.dynamicFields.clear();
 
         int currentY = startY + 5;
@@ -526,14 +538,7 @@ public class QuestEditorScreen extends Screen {
         TriggerConfig config = TriggerConfig.get(entry.trigger);
 
         for (TriggerField field : config.fields) {
-            TextFieldWidget fieldWidget = new TextFieldWidget(
-                    this.textRenderer,
-                    rightX + 10,
-                    currentY,
-                    rightColumnWidth - 20,
-                    20,
-                    Text.literal(field.name)
-            );
+            TextFieldWidget fieldWidget = new TextFieldWidget(this.textRenderer, rightX + 10, currentY, rightColumnWidth - 20, 20, Text.literal(field.name));
             fieldWidget.setPlaceholder(Text.literal(field.placeholder).formatted(Formatting.DARK_GRAY));
 
             String currentValue = entry.fieldValues.getOrDefault(field.key, field.defaultValue);
@@ -547,6 +552,23 @@ public class QuestEditorScreen extends Screen {
 
             currentY += 25;
         }
+
+        String checkboxLabel = entry.useDisplayOverride ? "[✔]" : "[ ]";
+        entry.overrideCheckbox = ButtonWidget.builder(Text.literal(checkboxLabel), btn -> {
+            entry.useDisplayOverride = !entry.useDisplayOverride;
+            btn.setMessage(Text.literal(entry.useDisplayOverride ? "[✔]" : "[ ]"));
+            entry.displayOverrideField.active = entry.useDisplayOverride;
+        }).dimensions(rightX, currentY, 20, 20).build();
+        this.addDrawableChild(entry.overrideCheckbox);
+
+        entry.displayOverrideField = new TextFieldWidget(this.textRenderer, rightX + 25, currentY, rightColumnWidth - 25, 20, Text.translatable("gui.questz.override"));
+        entry.displayOverrideField.setPlaceholder(Text.literal("Mine 10 Diamonds").formatted(Formatting.DARK_GRAY));
+        entry.displayOverrideField.setMaxLength(200);
+        entry.displayOverrideField.setText(entry.displayOverrideText);
+        entry.displayOverrideField.active = entry.useDisplayOverride;
+        entry.displayOverrideField.setChangedListener(text -> entry.displayOverrideText = text);
+        this.addSelectableChild(entry.displayOverrideField);
+        currentY += 25;
 
         currentY += 5;
         return currentY;
@@ -690,6 +712,13 @@ public class QuestEditorScreen extends Screen {
                 }
             }
 
+            if (entry.overrideCheckbox != null) {
+                entry.overrideCheckbox.render(context, mouseX, mouseY, delta);
+            }
+            if (entry.displayOverrideField != null) {
+                entry.displayOverrideField.render(context, mouseX, mouseY, delta);
+            }
+
             criteriaY += entryHeight;
         }
 
@@ -802,6 +831,15 @@ public class QuestEditorScreen extends Screen {
                 entry.triggerButton.mouseClicked(mouseX, mouseY, button);
                 return true;
             }
+            if (entry.overrideCheckbox != null && entry.overrideCheckbox.isMouseOver(mouseX, mouseY)) {
+                entry.overrideCheckbox.mouseClicked(mouseX, mouseY, button);
+                return true;
+            }
+            if (entry.displayOverrideField != null && entry.displayOverrideField.isMouseOver(mouseX, mouseY)) {
+                entry.displayOverrideField.mouseClicked(mouseX, mouseY, button);
+                this.setFocused(entry.displayOverrideField);
+                return true;
+            }
 
             criteriaY += entryHeight;
         }
@@ -884,7 +922,15 @@ public class QuestEditorScreen extends Screen {
             } catch (NumberFormatException ignored) {
             }
         }
-
+        Map<String, String> criterionOverrides = new LinkedHashMap<>();
+        for (CriteriaEntry entry : criteriaEntries) {
+            if (entry.useDisplayOverride && !entry.displayOverrideText.isEmpty()) {
+                criterionOverrides.put(entry.name, entry.displayOverrideText);
+            }
+        }
+        if (!criterionOverrides.isEmpty()) {
+            display.put("criterion_overrides", criterionOverrides);
+        }
         advancement.put("display", display);
 
         Map<String, Object> criteria = new LinkedHashMap<>();
@@ -1060,11 +1106,15 @@ public class QuestEditorScreen extends Screen {
         String name = "";
         String trigger = "minecraft:inventory_changed";
         Map<String, String> fieldValues = new HashMap<>();
+        String displayOverrideText = "";
+        boolean useDisplayOverride = false;
 
         TextFieldWidget nameField;
         ButtonWidget triggerButton;
         Map<String, TextFieldWidget> dynamicFields = new HashMap<>();
         ButtonWidget removeButton;
+        TextFieldWidget displayOverrideField;
+        ButtonWidget overrideCheckbox;
     }
 
     private static class TriggerField {

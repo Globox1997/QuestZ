@@ -13,6 +13,7 @@
     "gui.questz.background": "Background",
     "gui.questz.commands": "Commands",
     "gui.questz.requirements": "Reqruirements",
+    "gui.questz.override": "Override",
     "gui.questz.items": "Items (id:amount)",
     "gui.questz.text": "Text",
     "gui.questz.frame": "Frame: %s",

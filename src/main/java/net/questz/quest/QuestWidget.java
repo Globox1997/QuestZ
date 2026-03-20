@@ -39,6 +39,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.biome.Biome;
+import net.questz.access.DisplayAccess;
 import net.questz.access.RewardAccess;
 import net.questz.criteria.QuestCriterion;
 import net.questz.init.ConfigInit;
@@ -425,6 +426,12 @@ public class QuestWidget extends AdvancementWidget {
             descriptionParts.add(Text.literal(""));
             descriptionParts.add(Text.translatable("gui.questz.requirements").formatted(Formatting.YELLOW));
 
+            Map<String, String> overrides = Map.of();
+            if (this.advancement.getAdvancement().display().isPresent() && this.advancement.getAdvancement().display().get() instanceof DisplayAccess displayAccess) {
+                overrides = displayAccess.getCriterionOverrides();
+            }
+
+            Map<String, String> finalOverrides = overrides;
             criteria.forEach((criterionName, criterion) -> {
                 boolean isCompleted = this.progress != null;
                 if (isCompleted) {
@@ -436,6 +443,12 @@ public class QuestWidget extends AdvancementWidget {
                     }
                 }
                 Formatting statusColor = isCompleted ? Formatting.GREEN : Formatting.RED;
+
+                String overrideText = finalOverrides.get(criterionName);
+                if (overrideText != null && !overrideText.isEmpty()) {
+                    descriptionParts.add(Text.literal("  • " + overrideText).formatted(statusColor));
+                    return;
+                }
 
                 if (criterion.trigger() instanceof InventoryChangedCriterion) {
                     InventoryChangedCriterion.Conditions conditions = (InventoryChangedCriterion.Conditions) criterion.conditions();

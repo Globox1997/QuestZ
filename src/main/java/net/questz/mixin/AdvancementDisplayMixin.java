@@ -19,6 +19,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -38,6 +40,9 @@ public class AdvancementDisplayMixin implements DisplayAccess {
     private float x;
     @Shadow
     private float y;
+
+    @Unique
+    private Map<String, String> criterionOverrides = new HashMap<>();
 
     @Override
     public void setManualPosition(int x, int y) {
@@ -67,6 +72,16 @@ public class AdvancementDisplayMixin implements DisplayAccess {
         return this.tabOrder;
     }
 
+    @Override
+    public void setCriterionOverrides(Map<String, String> overrides) {
+        this.criterionOverrides = overrides != null ? overrides : new HashMap<>();
+    }
+
+    @Override
+    public Map<String, String> getCriterionOverrides() {
+        return this.criterionOverrides;
+    }
+
     @Inject(method = "setPos", at = @At("HEAD"), cancellable = true)
     private void onSetPosMixin(float x, float y, CallbackInfo info) {
         if (this.manualX != 0 || this.manualY != 0) {
@@ -84,20 +99,22 @@ public class AdvancementDisplayMixin implements DisplayAccess {
                 TextCodecs.CODEC.fieldOf("description").forGetter(AdvancementDisplay::getDescription),
                 Codec.INT.optionalFieldOf("x_manual").forGetter(d -> Optional.empty()),
                 Codec.INT.optionalFieldOf("y_manual").forGetter(d -> Optional.empty()),
-                Codec.INT.optionalFieldOf("tab_order", 0).forGetter(d ->
-                        d instanceof DisplayAccess da ? da.getTabOrder() : 0),
+                Codec.INT.optionalFieldOf("tab_order", 0).forGetter(d -> d instanceof DisplayAccess da ? da.getTabOrder() : 0),
+                Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("criterion_overrides", Map.of())
+                        .forGetter(d -> d instanceof DisplayAccess da ? da.getCriterionOverrides() : Map.of()),
                 Identifier.CODEC.optionalFieldOf("background").forGetter(AdvancementDisplay::getBackground),
                 AdvancementFrame.CODEC.optionalFieldOf("frame", AdvancementFrame.TASK).forGetter(AdvancementDisplay::getFrame),
                 Codec.BOOL.optionalFieldOf("show_toast", true).forGetter(AdvancementDisplay::shouldShowToast),
                 Codec.BOOL.optionalFieldOf("announce_to_chat", true).forGetter(AdvancementDisplay::shouldAnnounceToChat),
                 Codec.BOOL.optionalFieldOf("hidden", false).forGetter(AdvancementDisplay::isHidden)
-        ).apply(instance, (icon, title, description, xManual, yManual, tabOrder, background, frame, showToast, announceToChat, hidden) -> {
+        ).apply(instance, (icon, title, description, xManual, yManual, tabOrder, criterionOverrides, background, frame, showToast, announceToChat, hidden) -> {
             AdvancementDisplay advancementDisplay = new AdvancementDisplay(icon, title, description, background, frame, showToast, announceToChat, hidden);
             if (advancementDisplay instanceof DisplayAccess displayAccess) {
                 if (xManual.isPresent() && yManual.isPresent()) {
                     displayAccess.setManualPosition(xManual.get(), yManual.get());
                 }
                 displayAccess.setTabOrder(tabOrder);
+                displayAccess.setCriterionOverrides(criterionOverrides);
             }
             return advancementDisplay;
         }));
@@ -108,6 +125,12 @@ public class AdvancementDisplayMixin implements DisplayAccess {
         buf.writeInt(this.manualX);
         buf.writeInt(this.manualY);
         buf.writeInt(this.tabOrder);
+
+        buf.writeInt(this.criterionOverrides.size());
+        for (Map.Entry<String, String> entry : this.criterionOverrides.entrySet()) {
+            buf.writeString(entry.getKey());
+            buf.writeString(entry.getValue());
+        }
     }
 
     @Inject(method = "fromPacket", at = @At("RETURN"))
@@ -121,6 +144,15 @@ public class AdvancementDisplayMixin implements DisplayAccess {
                 displayAccess.setManualPosition(manualX, manualY);
             }
             displayAccess.setTabOrder(tabOrder);
+
+            int count = buf.readInt();
+            Map<String, String> overrides = new HashMap<>();
+            for (int i = 0; i < count; i++) {
+                String key = buf.readString();
+                String value = buf.readString();
+                overrides.put(key, value);
+            }
+            displayAccess.setCriterionOverrides(overrides);
         }
     }
 
