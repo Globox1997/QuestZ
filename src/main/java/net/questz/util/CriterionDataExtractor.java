@@ -84,11 +84,15 @@ public class CriterionDataExtractor {
                         sb.append("#").append(item.get("tag").getAsString());
                     } else if (item.has("items")) {
                         var itemsField = item.get("items");
-                        if (itemsField.isJsonArray() && itemsField.getAsJsonArray().size() > 0) {
+                        if (itemsField.isJsonArray() && !itemsField.getAsJsonArray().isEmpty()) {
                             sb.append(itemsField.getAsJsonArray().get(0).getAsString());
                         } else if (itemsField.isJsonPrimitive()) {
                             sb.append(itemsField.getAsString());
                         }
+                    }
+
+                    if (item.has("components")) {
+                        sb.append("[components=").append(item.get("components").toString()).append("]");
                     }
 
                     if (item.has("count")) {
@@ -98,7 +102,7 @@ public class CriterionDataExtractor {
                         }
                     }
                 }
-                if (sb.length() > 0) {
+                if (!sb.isEmpty()) {
                     data.put("items", sb.toString());
                 }
             }
@@ -144,7 +148,7 @@ public class CriterionDataExtractor {
                 var block = location.getAsJsonObject("block");
                 if (block.has("blocks")) {
                     var blocks = block.get("blocks");
-                    if (blocks.isJsonArray() && blocks.getAsJsonArray().size() > 0) {
+                    if (blocks.isJsonArray() && !blocks.getAsJsonArray().isEmpty()) {
                         data.put("location_block", blocks.getAsJsonArray().get(0).getAsString());
                     } else if (blocks.isJsonPrimitive()) {
                         data.put("location_block", blocks.getAsString());
@@ -157,7 +161,7 @@ public class CriterionDataExtractor {
             var item = conditions.getAsJsonObject("item");
             if (item.has("items")) {
                 var items = item.get("items");
-                if (items.isJsonArray() && items.getAsJsonArray().size() > 0) {
+                if (items.isJsonArray() && !items.getAsJsonArray().isEmpty()) {
                     data.put("item", items.getAsJsonArray().get(0).getAsString());
                 } else if (items.isJsonPrimitive()) {
                     data.put("item", items.getAsString());
@@ -173,7 +177,7 @@ public class CriterionDataExtractor {
                 var blockObj = block.getAsJsonObject();
                 if (blockObj.has("blocks")) {
                     var blocks = blockObj.get("blocks");
-                    if (blocks.isJsonArray() && blocks.getAsJsonArray().size() > 0) {
+                    if (blocks.isJsonArray() && !blocks.getAsJsonArray().isEmpty()) {
                         data.put("block", blocks.getAsJsonArray().get(0).getAsString());
                     } else if (blocks.isJsonPrimitive()) {
                         data.put("block", blocks.getAsString());

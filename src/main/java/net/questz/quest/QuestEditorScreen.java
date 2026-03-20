@@ -2,6 +2,7 @@ package net.questz.quest;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -1058,14 +1059,29 @@ public class QuestEditorScreen extends Screen {
                     return Arrays.asList(value.split(","));
                 case "item_array":
                     List<Map<String, Object>> items = new ArrayList<>();
-                    for (String part : value.split(",")) {
+                    List<String> parts = splitItemArray(value);
+
+                    for (String part : parts) {
                         Map<String, Object> itemEntry = new LinkedHashMap<>();
                         String trimmed = part.trim();
+
+                        if (trimmed.contains("[components=")) {
+                            int compStart = trimmed.indexOf("[components=");
+                            int compEnd = findMatchingBracket(trimmed, compStart + "[components=".length() - 1);
+
+                            String compJson = trimmed.substring(compStart + "[components=".length(), compEnd);
+                            trimmed = trimmed.substring(0, compStart) + trimmed.substring(compEnd + 1);
+
+                            try {
+                                JsonObject compObj = JsonParser.parseString(compJson).getAsJsonObject();
+                                itemEntry.put("components", new com.google.gson.Gson().fromJson(compObj, Map.class));
+                            } catch (Exception ignored) {
+                            }
+                        }
 
                         int lastColon = trimmed.lastIndexOf(":");
                         String itemId = trimmed;
                         int count = -1;
-
                         boolean isTag = trimmed.startsWith("#");
 
                         if (!isTag && lastColon != -1) {
@@ -1074,14 +1090,6 @@ public class QuestEditorScreen extends Screen {
                                 count = Integer.parseInt(lastPart);
                                 itemId = trimmed.substring(0, lastColon);
                             } catch (NumberFormatException ignored) {
-                            }
-                        } else if (isTag && lastColon != -1) {
-                            String lastPart = trimmed.substring(lastColon + 1);
-                            try {
-                                count = Integer.parseInt(lastPart);
-                                itemId = trimmed.substring(0, lastColon);
-                            } catch (NumberFormatException ignored) {
-                                itemId = trimmed;
                             }
                         }
 
@@ -1106,6 +1114,40 @@ public class QuestEditorScreen extends Screen {
         } catch (Exception e) {
             return value;
         }
+    }
+
+    private List<String> splitItemArray(String value) {
+        List<String> result = new ArrayList<>();
+        int depth = 0;
+        StringBuilder current = new StringBuilder();
+
+        for (char c : value.toCharArray()) {
+            if (c == '{' || c == '[') depth++;
+            else if (c == '}' || c == ']') depth--;
+
+            if (c == ',' && depth == 0) {
+                result.add(current.toString());
+                current = new StringBuilder();
+            } else {
+                current.append(c);
+            }
+        }
+        if (!current.isEmpty()) result.add(current.toString());
+        return result;
+    }
+
+    private int findMatchingBracket(String s, int openPos) {
+        char open = s.charAt(openPos);
+        char close = open == '{' ? '}' : ']';
+        int depth = 0;
+        for (int i = openPos; i < s.length(); i++) {
+            if (s.charAt(i) == open) depth++;
+            else if (s.charAt(i) == close) {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        return s.length() - 1;
     }
 
     private static class CriteriaEntry {

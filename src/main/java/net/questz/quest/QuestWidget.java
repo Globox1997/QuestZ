@@ -13,6 +13,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.advancement.AdvancementObtainedStatus;
 import net.minecraft.client.gui.screen.advancement.AdvancementWidget;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.entity.Entity;
@@ -26,6 +27,7 @@ import net.minecraft.loot.condition.LocationCheckLootCondition;
 import net.minecraft.loot.condition.LootCondition;
 import net.minecraft.loot.condition.MatchToolLootCondition;
 import net.minecraft.predicate.BlockPredicate;
+import net.minecraft.predicate.ComponentPredicate;
 import net.minecraft.predicate.entity.EntityPredicate;
 import net.minecraft.predicate.entity.LocationPredicate;
 import net.minecraft.predicate.entity.LootContextPredicate;
@@ -464,9 +466,15 @@ public class QuestWidget extends AdvancementWidget {
                                 if (predicate.count().min().isPresent()) {
                                     count = predicate.count().min().get();
                                 }
-                                String itemName = item.getName().getString();
+
+                                ItemStack stack = new ItemStack(item, count);
+                                if (!predicate.components().isEmpty()) {
+                                    tryApplyComponents(stack, predicate.components());
+                                }
+
+                                String itemName = stack.getName().getString();
                                 descriptionParts.add(Text.literal("    " + itemName).formatted(statusColor));
-                                pendingItems.add(new ItemRenderInfo(-1, 2, new ItemStack(item, count), itemName));
+                                pendingItems.add(new ItemRenderInfo(-1, 2, stack, itemName));
                             } else {
                                 // TODO: Tag issue probably not loaded when tags get synced
                                 // resolveTagForDisplay(predicate, criterionName, statusColor, descriptionParts, pendingItems);
@@ -961,6 +969,13 @@ public class QuestWidget extends AdvancementWidget {
             }
         }
         return Optional.empty();
+    }
+
+    private void tryApplyComponents(ItemStack stack, ComponentPredicate componentPredicate) {
+        try {
+            ComponentChanges changes = componentPredicate.toChanges();
+            stack.applyChanges(changes);
+        } catch (Exception ignored) {}
     }
 
     private static class ItemRenderInfo {
