@@ -7,6 +7,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.stat.Stat;
 import net.minecraft.stat.Stats;
 import net.questz.init.CriteriaInit;
+import net.questz.tracking.TaskTracker;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,6 +19,7 @@ public class ServerPlayerEntityMixin {
     // Gets called pretty often
     @Inject(method = "increaseStat", at = @At("TAIL"))
     private void increaseStatMixin(Stat<?> stat, int amount, CallbackInfo info) {
+        TaskTracker.onStat((ServerPlayerEntity) (Object) this, stat, amount);
         if (stat.getType().equals(Stats.USED)) {
             if (stat.getValue() instanceof Item) {
                 CriteriaInit.PLACED_BLOCK_COUNT.trigger((ServerPlayerEntity) (Object) this, (Item) stat.getValue(), null, null, 0);
