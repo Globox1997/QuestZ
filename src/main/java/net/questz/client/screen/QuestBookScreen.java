@@ -51,6 +51,10 @@ public class QuestBookScreen extends Screen {
     private static final int FRAME_INSET = 9;
     private static final int PADDING = 8;
     private static final int TAB_WIDTH = 28;
+    private static final int COLOR_LINE_DONE = 0xFFFFFFFF;
+    private static final int COLOR_LINE_OPEN = 0xFF707070;
+    private static final int COLOR_LINE_REQUIRED = 0xFFD9B46A;
+    private static final int COLOR_LINE_UNLOCKS = 0xFF7FAED6;
     private static final int TAB_HEIGHT = 32;
     private static final int TOP_BUTTON_Y = PADDING + 6;
     private static final int BUTTON_HEIGHT = 16;
@@ -305,7 +309,7 @@ public class QuestBookScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.refresh();
         this.renderBackground(context, mouseX, mouseY, delta);
-        this.drawMap(context);
+        this.drawMap(context, this.menu == null && !this.dragging ? this.getQuestAt(mouseX, mouseY) : null);
         this.drawFrame(context);
         this.drawTabs(context);
         if (this.editToggleX >= 0) {
@@ -354,7 +358,7 @@ public class QuestBookScreen extends Screen {
         }
     }
 
-    private void drawMap(DrawContext context) {
+    private void drawMap(DrawContext context, @Nullable Quest hovered) {
         int left = this.mapLeft();
         int top = this.mapTop();
         int mapWidth = this.mapWidth();
@@ -387,8 +391,10 @@ public class QuestBookScreen extends Screen {
         }
 
         ProgressView progress = QuestTexts.progress();
-        this.drawLines(context, progress, true);
-        this.drawLines(context, progress, false);
+        String hoveredId = hovered != null ? hovered.id() : null;
+        this.drawLines(context, progress, hoveredId, true, false);
+        this.drawLines(context, progress, hoveredId, false, false);
+        this.drawLines(context, progress, hoveredId, false, true);
         for (Quest quest : this.visibleQuests) {
             this.drawNode(context, progress, quest);
         }
@@ -402,14 +408,28 @@ public class QuestBookScreen extends Screen {
         context.disableScissor();
     }
 
-    private void drawLines(DrawContext context, ProgressView progress, boolean border) {
+    private void drawLines(DrawContext context, ProgressView progress, @Nullable String hoveredId, boolean border, boolean highlighted) {
         for (Quest quest : this.visibleQuests) {
             for (String dependencyId : quest.dependencies()) {
                 Quest dependency = this.visibleById.get(dependencyId);
                 if (dependency == null) {
                     continue;
                 }
-                int color = border ? 0xFF000000 : progress.isCompleted(dependencyId) ? 0xFFFFFFFF : 0xFF707070;
+                boolean required = quest.id().equals(hoveredId);
+                boolean unlocks = dependencyId.equals(hoveredId);
+                if (!border && highlighted != (required || unlocks)) {
+                    continue;
+                }
+                int color;
+                if (border) {
+                    color = 0xFF000000;
+                } else if (required) {
+                    color = COLOR_LINE_REQUIRED;
+                } else if (unlocks) {
+                    color = COLOR_LINE_UNLOCKS;
+                } else {
+                    color = progress.hasEverCompleted(dependencyId) ? COLOR_LINE_DONE : COLOR_LINE_OPEN;
+                }
                 drawLine(context, (float) this.getX(dependency) * GRID, (float) this.getY(dependency) * GRID, (float) this.getX(quest) * GRID, (float) this.getY(quest) * GRID,
                         border ? 2 : 1, color);
             }
