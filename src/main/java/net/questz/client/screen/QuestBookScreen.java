@@ -7,6 +7,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.advancement.AdvancementObtainedStatus;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.math.MatrixStack;
@@ -29,6 +30,7 @@ import net.questz.client.editor.ContextMenu;
 import net.questz.client.editor.QuestEditScreen;
 import net.questz.init.KeyInit;
 import net.questz.network.packet.DeleteQuestPacket;
+import net.questz.network.packet.EditChapterPacket;
 import net.questz.network.packet.EditQuestPacket;
 import net.questz.network.packet.MoveQuestsPacket;
 import net.questz.progress.ProgressView;
@@ -91,6 +93,9 @@ public class QuestBookScreen extends Screen {
     private ButtonWidget previousPage;
     private ButtonWidget nextPage;
     private ButtonWidget teamButton;
+    private ButtonWidget lineStyleButton;
+    private List<LineRouter.Route> cachedRoutes = List.of();
+    private int cachedRoutesKey;
     private boolean pressedInMap;
     private boolean dragging;
     private double pressX;
@@ -119,6 +124,10 @@ public class QuestBookScreen extends Screen {
             this.editToggleX = x;
             x -= 4;
         }
+        x -= BUTTON_HEIGHT;
+        this.lineStyleButton = this.addDrawableChild(ButtonWidget.builder(Text.empty(), button -> this.toggleLineStyle())
+                .dimensions(x, TOP_BUTTON_Y, BUTTON_HEIGHT, BUTTON_HEIGHT).build());
+        x -= 4;
         x -= 42;
         this.teamButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team"), button -> {
                     if (this.client != null) {
@@ -318,6 +327,8 @@ public class QuestBookScreen extends Screen {
         this.previousPage.render(context, mouseX, mouseY, delta);
         this.nextPage.render(context, mouseX, mouseY, delta);
         this.teamButton.render(context, mouseX, mouseY, delta);
+        this.updateLineStyleButton();
+        this.lineStyleButton.render(context, mouseX, mouseY, delta);
         if (this.menu != null) {
             this.menu.render(context, this.textRenderer, mouseX, mouseY);
         } else {
@@ -392,9 +403,16 @@ public class QuestBookScreen extends Screen {
 
         ProgressView progress = QuestTexts.progress();
         String hoveredId = hovered != null ? hovered.id() : null;
-        this.drawLines(context, progress, hoveredId, true, false);
-        this.drawLines(context, progress, hoveredId, false, false);
-        this.drawLines(context, progress, hoveredId, false, true);
+        if (this.chapter.lineStyle() == LineStyle.ORTHOGONAL) {
+            List<LineRouter.Route> routes = this.routeLines();
+            this.drawRoutes(context, progress, routes, hoveredId, true, false);
+            this.drawRoutes(context, progress, routes, hoveredId, false, false);
+            this.drawRoutes(context, progress, routes, hoveredId, false, true);
+        } else {
+            this.drawLines(context, progress, hoveredId, true, false);
+            this.drawLines(context, progress, hoveredId, false, false);
+            this.drawLines(context, progress, hoveredId, false, true);
+        }
         for (Quest quest : this.visibleQuests) {
             this.drawNode(context, progress, quest);
         }
@@ -433,6 +451,84 @@ public class QuestBookScreen extends Screen {
                 drawLine(context, (float) this.getX(dependency) * GRID, (float) this.getY(dependency) * GRID, (float) this.getX(quest) * GRID, (float) this.getY(quest) * GRID,
                         border ? 2 : 1, color);
             }
+        }
+    }
+
+    private int lineColor(ProgressView progress, Quest dependency, Quest quest, @Nullable String hoveredId) {
+        if (quest.id().equals(hoveredId)) {
+            return COLOR_LINE_REQUIRED;
+        }
+        if (dependency.id().equals(hoveredId)) {
+            return COLOR_LINE_UNLOCKS;
+        }
+        return progress.hasEverCompleted(dependency.id()) ? COLOR_LINE_DONE : COLOR_LINE_OPEN;
+    }
+
+    private List<LineRouter.Route> routeLines() {
+        int overridesHash = 0;
+        for (Map.Entry<String, double[]> entry : this.positionOverrides.entrySet()) {
+            overridesHash += entry.getKey().hashCode() ^ Arrays.hashCode(entry.getValue());
+        }
+        int key = Objects.hash(this.revision, this.chapter != null ? this.chapter.id() : "", this.visibleQuests.size(), overridesHash);
+        if (key == this.cachedRoutesKey && !this.cachedRoutes.isEmpty()) {
+            return this.cachedRoutes;
+        }
+        this.cachedRoutesKey = key;
+        List<Quest[]> connections = new ArrayList<>();
+        for (Quest quest : this.visibleQuests) {
+            for (String dependencyId : quest.dependencies()) {
+                Quest dependency = this.visibleById.get(dependencyId);
+                if (dependency != null && dependency != quest) {
+                    connections.add(new Quest[]{dependency, quest});
+                }
+            }
+        }
+        this.cachedRoutes = LineRouter.route(this.visibleQuests, connections, new LineRouter.Positions() {
+            @Override
+            public float x(Quest quest) {
+                return (float) QuestBookScreen.this.getX(quest) * GRID;
+            }
+
+            @Override
+            public float y(Quest quest) {
+                return (float) QuestBookScreen.this.getY(quest) * GRID;
+            }
+        });
+        return this.cachedRoutes;
+    }
+
+    private void drawRoutes(DrawContext context, ProgressView progress, List<LineRouter.Route> routes, @Nullable String hoveredId, boolean border, boolean highlighted) {
+        for (LineRouter.Route route : routes) {
+            boolean isHighlighted = route.to().id().equals(hoveredId) || route.from().id().equals(hoveredId);
+            if (!border && highlighted != isHighlighted) {
+                continue;
+            }
+            int color = border ? 0xFF000000 : this.lineColor(progress, route.from(), route.to(), hoveredId);
+            for (LineRouter.Segment segment : route.segments()) {
+                int minX = Math.round(Math.min(segment.x1(), segment.x2()));
+                int maxX = Math.round(Math.max(segment.x1(), segment.x2()));
+                int minY = Math.round(Math.min(segment.y1(), segment.y2()));
+                int maxY = Math.round(Math.max(segment.y1(), segment.y2()));
+                int expand = border ? 1 : 0;
+                context.fill(minX - expand, minY - expand, maxX + expand + 1, maxY + expand + 1, color);
+            }
+        }
+    }
+
+    private void updateLineStyleButton() {
+        boolean visible = this.isEditing() && this.chapter != null;
+        this.lineStyleButton.visible = visible;
+        if (visible) {
+            LineStyle style = this.chapter.lineStyle();
+            this.lineStyleButton.setMessage(Text.literal(style == LineStyle.ORTHOGONAL ? "\u2514" : "\u2571"));
+            this.lineStyleButton.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.line_style." + style.asString())));
+        }
+    }
+
+    private void toggleLineStyle() {
+        if (this.isEditing() && this.chapter != null) {
+            ClientEditor.send(new EditChapterPacket(this.chapter.withLineStyle(this.chapter.lineStyle().next()).withQuests(List.of())));
+            this.playClick();
         }
     }
 
@@ -808,7 +904,7 @@ public class QuestBookScreen extends Screen {
     private void createChapter() {
         int order = this.book.getChapters().stream().mapToInt(Chapter::order).max().orElse(-1) + 1;
         Chapter chapter = new Chapter(this.book.generateId(), Text.literal(Text.translatable("gui.questz.editor.new_chapter_title").getString()), new ItemStack(Items.BOOK), order,
-                Optional.empty(), List.of());
+                Optional.empty(), LineStyle.DIRECT, List.of());
         if (this.client != null) {
             this.client.setScreen(new ChapterEditScreen(this, chapter, true));
         }

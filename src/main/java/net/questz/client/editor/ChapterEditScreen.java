@@ -137,7 +137,7 @@ public class ChapterEditScreen extends Screen {
         }
         ItemStack icon = this.original.icon().isOf(item) ? this.original.icon() : new ItemStack(item);
         Optional<Identifier> background = this.backgroundValue.isBlank() ? Optional.empty() : Optional.ofNullable(Identifier.tryParse(this.backgroundValue.trim()));
-        Chapter chapter = new Chapter(this.original.id(), ClientEditor.fromEditString(this.titleValue), icon, order, background, List.of());
+        Chapter chapter = new Chapter(this.original.id(), ClientEditor.fromEditString(this.titleValue), icon, order, background, this.original.lineStyle(), List.of());
         ClientEditor.send(new EditChapterPacket(chapter));
         QuestBookScreen.selectChapter(chapter.id());
         this.close();

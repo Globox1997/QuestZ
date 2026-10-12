@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public record Chapter(String id, Text title, ItemStack icon, int order, Optional<Identifier> background, List<Quest> quests) {
+public record Chapter(String id, Text title, ItemStack icon, int order, Optional<Identifier> background, LineStyle lineStyle, List<Quest> quests) {
 
     public static final Codec<Chapter> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             QuestBook.ID_CODEC.fieldOf("id").forGetter(Chapter::id),
@@ -20,11 +20,16 @@ public record Chapter(String id, Text title, ItemStack icon, int order, Optional
             ItemStack.UNCOUNTED_CODEC.optionalFieldOf("icon", new ItemStack(Items.BOOK)).forGetter(Chapter::icon),
             Codec.INT.optionalFieldOf("order", 0).forGetter(Chapter::order),
             Identifier.CODEC.optionalFieldOf("background").forGetter(Chapter::background),
+            LineStyle.CODEC.optionalFieldOf("line_style", LineStyle.DIRECT).forGetter(Chapter::lineStyle),
             Quest.CODEC.listOf().optionalFieldOf("quests", List.of()).forGetter(Chapter::quests)
     ).apply(instance, Chapter::new));
 
     public Chapter withQuests(List<Quest> quests) {
-        return new Chapter(this.id, this.title, this.icon, this.order, this.background, List.copyOf(quests));
+        return new Chapter(this.id, this.title, this.icon, this.order, this.background, this.lineStyle, List.copyOf(quests));
+    }
+
+    public Chapter withLineStyle(LineStyle lineStyle) {
+        return new Chapter(this.id, this.title, this.icon, this.order, this.background, lineStyle, this.quests);
     }
 
     public Chapter withQuest(Quest quest) {

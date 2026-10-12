@@ -95,6 +95,8 @@
     "gui.questz.editor.order.tooltip": "Chapters are sorted by this number",
     "gui.questz.editor.background": "Background texture",
     "gui.questz.editor.background.tooltip": "A texture id like minecraft:textures/block/stone.png. Leave it empty for the default",
+    "gui.questz.editor.line_style.direct": "Lines: direct. Click to switch this chapter to vanilla style lines",
+    "gui.questz.editor.line_style.orthogonal": "Lines: vanilla style. Click to switch this chapter to direct lines",
     "gui.questz.editor.repeatable": "Repeatable",
     "gui.questz.editor.repeatable.tooltip": "The quest restarts after its rewards are claimed. Auto-claim is ignored and quests without rewards do not repeat. Tasks that check a state (location, held items) are done again right away.",
     "gui.questz.editor.mode.json": "JSON",
