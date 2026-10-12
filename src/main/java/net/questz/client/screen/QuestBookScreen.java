@@ -15,7 +15,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
@@ -60,6 +59,7 @@ public class QuestBookScreen extends Screen {
     private static final int TAB_HEIGHT = 32;
     private static final int TOP_BUTTON_Y = PADDING + 6;
     private static final int BUTTON_HEIGHT = 16;
+    private static final int ICON_SIZE = 16;
     private static final float EDIT_TINT_RED = 0.7F;
     private static final float EDIT_TINT_GREEN = 0.8F;
     private static final float EDIT_TINT_BLUE = 1.0F;
@@ -90,11 +90,13 @@ public class QuestBookScreen extends Screen {
     private int page;
     private int tabsPerPage = 1;
     private int editToggleX = -1;
-    private ButtonWidget previousPage;
-    private ButtonWidget nextPage;
-    private ButtonWidget teamButton;
+    private int teamX;
+    private int previousPageX;
+    private int nextPageX;
+    private boolean pagesVisible;
     private ButtonWidget lineStyleButton;
     private List<LineRouter.Route> cachedRoutes = List.of();
+    private float hoverAlpha;
     private int cachedRoutesKey;
     private boolean pressedInMap;
     private boolean dragging;
@@ -117,30 +119,22 @@ public class QuestBookScreen extends Screen {
 
     @Override
     protected void init() {
-        int x = this.width - PADDING;
+        int x = this.width - PADDING - ICON_SIZE;
+        this.teamX = x;
+        x -= 4;
         this.editToggleX = -1;
         if (ClientEditor.canEdit()) {
-            x -= 16;
+            x -= ICON_SIZE;
             this.editToggleX = x;
             x -= 4;
         }
         x -= BUTTON_HEIGHT;
         this.lineStyleButton = this.addDrawableChild(ButtonWidget.builder(Text.empty(), button -> this.toggleLineStyle())
                 .dimensions(x, TOP_BUTTON_Y, BUTTON_HEIGHT, BUTTON_HEIGHT).build());
-        x -= 4;
-        x -= 42;
-        this.teamButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team"), button -> {
-                    if (this.client != null) {
-                        this.client.setScreen(new TeamScreen(this));
-                    }
-                })
-                .dimensions(x, TOP_BUTTON_Y, 42, BUTTON_HEIGHT).build());
-        x -= 4 + BUTTON_HEIGHT;
-        this.nextPage = this.addDrawableChild(ButtonWidget.builder(Text.literal(">"), button -> this.changePage(1))
-                .dimensions(x, TOP_BUTTON_Y, BUTTON_HEIGHT, BUTTON_HEIGHT).build());
-        x -= 2 + BUTTON_HEIGHT;
-        this.previousPage = this.addDrawableChild(ButtonWidget.builder(Text.literal("<"), button -> this.changePage(-1))
-                .dimensions(x, TOP_BUTTON_Y, BUTTON_HEIGHT, BUTTON_HEIGHT).build());
+        x -= 4 + ICON_SIZE;
+        this.nextPageX = x;
+        x -= 2 + ICON_SIZE;
+        this.previousPageX = x;
         x -= 4;
         this.tabsPerPage = Math.max(1, (x - this.mapLeft()) / (TAB_WIDTH + 2));
         this.revision = -1;
@@ -205,8 +199,7 @@ public class QuestBookScreen extends Screen {
         this.rebuildVisibleQuests();
         int pages = this.getPageCount();
         this.page = MathHelper.clamp(this.page, 0, Math.max(0, pages - 1));
-        this.previousPage.visible = pages > 1;
-        this.nextPage.visible = pages > 1;
+        this.pagesVisible = pages > 1;
     }
 
     private void rebuildVisibleQuests() {
@@ -318,15 +311,21 @@ public class QuestBookScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.refresh();
         this.renderBackground(context, mouseX, mouseY, delta);
-        this.drawMap(context, this.menu == null && !this.dragging ? this.getQuestAt(mouseX, mouseY) : null);
+        Quest hovered = this.menu == null && !this.dragging ? this.getQuestAt(mouseX, mouseY) : null;
+        this.hoverAlpha = hovered != null ? MathHelper.clamp(this.hoverAlpha + 0.02F, 0.0F, 0.3F) : MathHelper.clamp(this.hoverAlpha - 0.04F, 0.0F, 1.0F);
+        this.drawMap(context, hovered);
         this.drawFrame(context);
         this.drawTabs(context);
         if (this.editToggleX >= 0) {
             context.drawTexture(EDIT_MODE_TEXTURE, this.editToggleX, TOP_BUTTON_Y, 16, 16, editMode ? 0 : 16, 0, 16, 16, 32, 16);
         }
-        this.previousPage.render(context, mouseX, mouseY, delta);
-        this.nextPage.render(context, mouseX, mouseY, delta);
-        this.teamButton.render(context, mouseX, mouseY, delta);
+        QuestzGui.drawIcon(context, QuestzGui.TEAM, this.teamX, TOP_BUTTON_Y, ICON_SIZE, this.isOverIcon(this.teamX, mouseX, mouseY));
+        if (this.pagesVisible) {
+            boolean canGoBack = this.page > 0;
+            boolean canGoForward = this.page < this.getPageCount() - 1;
+            QuestzGui.drawIcon(context, QuestzGui.ARROW_LEFT, this.previousPageX, TOP_BUTTON_Y, ICON_SIZE, canGoBack && this.isOverIcon(this.previousPageX, mouseX, mouseY));
+            QuestzGui.drawIcon(context, QuestzGui.ARROW_RIGHT, this.nextPageX, TOP_BUTTON_Y, ICON_SIZE, canGoForward && this.isOverIcon(this.nextPageX, mouseX, mouseY));
+        }
         this.updateLineStyleButton();
         this.lineStyleButton.render(context, mouseX, mouseY, delta);
         if (this.menu != null) {
@@ -417,6 +416,9 @@ public class QuestBookScreen extends Screen {
             this.drawNode(context, progress, quest);
         }
         matrices.pop();
+        if (this.hoverAlpha > 0.0F) {
+            context.fill(left, top, left + mapWidth, top + mapHeight, MathHelper.floor(this.hoverAlpha * 255.0F) << 24);
+        }
 
         if (this.isEditing()) {
             Text hint = this.linkSourceId != null ? Text.translatable("gui.questz.editor.link_mode") : Text.translatable("gui.questz.editor.hint");
@@ -520,7 +522,7 @@ public class QuestBookScreen extends Screen {
         this.lineStyleButton.visible = visible;
         if (visible) {
             LineStyle style = this.chapter.lineStyle();
-            this.lineStyleButton.setMessage(Text.literal(style == LineStyle.ORTHOGONAL ? "\u2514" : "\u2571"));
+            this.lineStyleButton.setMessage(Text.literal(style == LineStyle.ORTHOGONAL ? "D" : "V"));
             this.lineStyleButton.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.line_style." + style.asString())));
         }
     }
@@ -575,7 +577,11 @@ public class QuestBookScreen extends Screen {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         if (QuestTexts.isClaimable(quest)) {
             matrices.translate(0.0F, 0.0F, 200.0F);
-            context.drawTextWithShadow(this.textRenderer, Text.literal("!").formatted(Formatting.GOLD, Formatting.BOLD), 8, -14, 0xFFFFFFFF);
+            QuestzGui.drawIcon(context, QuestzGui.MARKER, 5, -17, ICON_SIZE, true);
+        }
+        if (quest.repeatable()) {
+            matrices.translate(0.0F, 0.0F, 200.0F);
+            QuestzGui.drawIcon(context, QuestzGui.REFRESH, 6, 6, 8, true);
         }
         matrices.pop();
     }
@@ -608,6 +614,10 @@ public class QuestBookScreen extends Screen {
         return null;
     }
 
+    private boolean isOverIcon(int x, double mouseX, double mouseY) {
+        return mouseX >= x && mouseX < x + ICON_SIZE && mouseY >= TOP_BUTTON_Y && mouseY < TOP_BUTTON_Y + ICON_SIZE;
+    }
+
     private boolean isOverEditToggle(double mouseX, double mouseY) {
         return this.editToggleX >= 0 && ClientEditor.canEdit() && mouseX >= this.editToggleX && mouseX < this.editToggleX + 16 && mouseY >= TOP_BUTTON_Y
                 && mouseY < TOP_BUTTON_Y + 16;
@@ -616,6 +626,15 @@ public class QuestBookScreen extends Screen {
     private void drawTooltips(DrawContext context, int mouseX, int mouseY) {
         if (this.isOverEditToggle(mouseX, mouseY)) {
             context.drawTooltip(this.textRenderer, Text.translatable(editMode ? "gui.questz.editor.disable" : "gui.questz.editor.enable"), mouseX, mouseY);
+            return;
+        }
+        if (this.isOverIcon(this.teamX, mouseX, mouseY)) {
+            context.drawTooltip(this.textRenderer, Text.translatable("gui.questz.team"), mouseX, mouseY);
+            return;
+        }
+        if (this.pagesVisible && (this.isOverIcon(this.previousPageX, mouseX, mouseY) || this.isOverIcon(this.nextPageX, mouseX, mouseY))) {
+            String key = this.isOverIcon(this.previousPageX, mouseX, mouseY) ? "gui.questz.page.previous" : "gui.questz.page.next";
+            context.drawTooltip(this.textRenderer, Text.translatable(key, this.page + 1, this.getPageCount()), mouseX, mouseY);
             return;
         }
         if (this.isEditing() && this.linkSourceId == null && mouseX >= this.mapLeft() && mouseX < this.mapLeft() + this.mapWidth()
@@ -632,33 +651,14 @@ public class QuestBookScreen extends Screen {
             return;
         }
         Quest quest = this.getQuestAt(mouseX, mouseY);
-        if (quest == null) {
+        if (quest == null || this.chapter == null) {
             return;
         }
-        ProgressView progress = QuestTexts.progress();
-        List<OrderedText> lines = new ArrayList<>();
-        lines.add(QuestTexts.title(quest).copy().formatted(Formatting.WHITE).asOrderedText());
-        lines.add(QuestTexts.status(this.book, progress, quest).asOrderedText());
-        if (!QuestTexts.isUnlocked(this.book, progress, quest) && !quest.dependencies().isEmpty()) {
-            lines.addAll(this.textRenderer.wrapLines(QuestTexts.requirements(this.book, progress, quest), 200));
-        }
-        for (Text description : quest.description()) {
-            lines.addAll(this.textRenderer.wrapLines(description.copy().formatted(Formatting.GRAY), 200));
-        }
-        if (!quest.tasks().isEmpty()) {
-            long done = quest.tasks().stream().filter(task -> QuestEngine.isTaskComplete(progress, quest, task)).count();
-            lines.add(Text.translatable("gui.questz.tasks_done", done, quest.tasks().size()).formatted(Formatting.DARK_GRAY).asOrderedText());
-        }
-        if (QuestTexts.isClaimable(quest)) {
-            lines.add(Text.translatable("gui.questz.rewards_ready").formatted(Formatting.GOLD).asOrderedText());
-        }
-        if (this.isEditing()) {
-            if (this.hiddenIds.contains(quest.id())) {
-                lines.add(Text.translatable("gui.questz.editor.hidden").formatted(Formatting.BLUE).asOrderedText());
-            }
-            lines.add(Text.literal(quest.id()).formatted(Formatting.DARK_GRAY).asOrderedText());
-        }
-        context.drawOrderedTooltip(this.textRenderer, lines, mouseX, mouseY);
+        View view = this.getView(this.chapter);
+        int centerX = MathHelper.floor(this.mapLeft() + (this.getX(quest) * GRID + view.originX) * view.scale);
+        int centerY = MathHelper.floor(this.mapTop() + (this.getY(quest) * GRID + view.originY) * view.scale);
+        QuestTooltip.draw(context, this.textRenderer, this.book, QuestTexts.progress(), quest, this.isEditing(), this.hiddenIds.contains(quest.id()), centerX, centerY,
+                this.width, this.mapTop() + this.mapHeight());
     }
 
     @Override
@@ -674,6 +674,19 @@ public class QuestBookScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
+        if (button == 0 && this.isOverIcon(this.teamX, mouseX, mouseY) && this.client != null) {
+            this.playClick();
+            this.client.setScreen(new TeamScreen(this));
+            return true;
+        }
+        if (button == 0 && this.pagesVisible && (this.isOverIcon(this.previousPageX, mouseX, mouseY) || this.isOverIcon(this.nextPageX, mouseX, mouseY))) {
+            int previous = this.page;
+            this.changePage(this.isOverIcon(this.previousPageX, mouseX, mouseY) ? -1 : 1);
+            if (this.page != previous) {
+                this.playSound(SoundEvents.ITEM_BOOK_PAGE_TURN, 1.0F);
+            }
+            return true;
+        }
         if (button == 0 && this.isOverEditToggle(mouseX, mouseY)) {
             editMode = !editMode;
             this.linkSourceId = null;
@@ -685,7 +698,7 @@ public class QuestBookScreen extends Screen {
         if (tab != null) {
             if (button == 0 && tab != this.chapter) {
                 this.selectChapter(tab);
-                this.playClick();
+                this.playSound(SoundEvents.ITEM_BOOK_PAGE_TURN, 1.0F);
             } else if (button == 1 && this.isEditing()) {
                 this.selectChapter(tab);
                 this.openChapterMenu((int) mouseX, (int) mouseY);

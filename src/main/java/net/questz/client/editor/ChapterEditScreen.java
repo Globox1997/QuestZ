@@ -18,6 +18,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.questz.book.Chapter;
 import net.questz.client.screen.QuestBookScreen;
+import net.questz.client.screen.QuestzGui;
 import net.questz.network.packet.DeleteChapterPacket;
 import net.questz.network.packet.EditChapterPacket;
 import org.jetbrains.annotations.Nullable;
@@ -57,21 +58,21 @@ public class ChapterEditScreen extends Screen {
         int width = Math.min(this.width - 20, 220);
         int left = (this.width - width) / 2;
 
-        TextFieldWidget titleField = this.field(left, 30, width, "gui.questz.editor.title", this.titleValue);
+        TextFieldWidget titleField = this.field(left, 40, width, "gui.questz.editor.title", this.titleValue);
         titleField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.title.tooltip")));
         titleField.setChangedListener(value -> this.titleValue = value);
-        this.iconField = this.field(left, 54, width - 20, "gui.questz.editor.icon", this.iconValue);
+        this.iconField = this.field(left, 74, width - 20, "gui.questz.editor.icon", this.iconValue);
         this.iconField.setChangedListener(value -> {
             this.iconValue = value;
             this.updateValidity();
         });
-        this.orderField = this.field(left, 78, width, "gui.questz.editor.order", this.orderValue);
+        this.orderField = this.field(left, 108, width, "gui.questz.editor.order", this.orderValue);
         this.orderField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.order.tooltip")));
         this.orderField.setChangedListener(value -> {
             this.orderValue = value;
             this.updateValidity();
         });
-        this.backgroundField = this.field(left, 102, width, "gui.questz.editor.background", this.backgroundValue);
+        this.backgroundField = this.field(left, 142, width, "gui.questz.editor.background", this.backgroundValue);
         this.backgroundField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.background.tooltip")));
         this.backgroundField.setChangedListener(value -> {
             this.backgroundValue = value;
@@ -156,14 +157,29 @@ public class ChapterEditScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        super.renderBackground(context, mouseX, mouseY, delta);
+        int width = Math.min(this.width - 20, 220);
+        int left = (this.width - width) / 2;
+        QuestzGui.drawPanel(context, left - 8, 2, width + 16, this.height - 4);
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFFFF);
+        int labelWidth = Math.min(this.width - 20, 220);
+        int labelLeft = (this.width - labelWidth) / 2;
+        String[] labels = {"gui.questz.editor.title", "gui.questz.editor.icon", "gui.questz.editor.order", "gui.questz.editor.background"};
+        int[] labelY = {30, 64, 98, 132};
+        for (int i = 0; i < labels.length; i++) {
+            context.drawText(this.textRenderer, Text.translatable(labels[i]), labelLeft, labelY[i], QuestzGui.COLOR_LABEL, false);
+        }
         Item item = this.parseIcon();
         if (item != null) {
             int width = Math.min(this.width - 20, 220);
             int left = (this.width - width) / 2;
-            context.drawItem(new ItemStack(item), left + width - 17, 55);
+            context.drawItem(new ItemStack(item), left + width - 17, 75);
         }
     }
 

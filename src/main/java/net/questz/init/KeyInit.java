@@ -7,7 +7,9 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.sound.SoundEvents;
 import net.questz.client.screen.QuestBookScreen;
 
 @Environment(EnvType.CLIENT)
@@ -22,6 +24,7 @@ public class KeyInit {
             if (screenKey.wasPressed()) {
                 if (client.player != null && client.player.networkHandler != null) {
                     client.setScreen(new QuestBookScreen());
+                    client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ITEM_BOOK_PAGE_TURN, 1.0F));
                     return;
                 }
             }

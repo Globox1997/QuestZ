@@ -73,25 +73,16 @@ public class QuestTexts {
     }
 
     public static Text status(QuestBook book, ProgressView progress, Quest quest) {
-        return status(book, progress, quest, false);
-    }
-
-    public static Text status(QuestBook book, ProgressView progress, Quest quest, boolean lightBackground) {
         if (progress.isCompleted(quest.id())) {
-            return Text.translatable("gui.questz.status.completed").formatted(lightBackground ? Formatting.DARK_GREEN : Formatting.GREEN);
+            return Text.translatable("gui.questz.status.completed").formatted(Formatting.GREEN);
         }
         if (QuestEngine.areDependenciesMet(book, progress, quest)) {
-            return Text.translatable("gui.questz.status.available").formatted(lightBackground ? Formatting.GOLD : Formatting.YELLOW);
+            return Text.translatable("gui.questz.status.available").formatted(Formatting.YELLOW);
         }
-        return Text.translatable("gui.questz.status.locked").formatted(lightBackground ? Formatting.DARK_GRAY : Formatting.GRAY);
+        return Text.translatable("gui.questz.status.locked").formatted(Formatting.GRAY);
     }
 
     public static Text requirements(QuestBook book, ProgressView progress, Quest quest) {
-        return requirements(book, progress, quest, false);
-    }
-
-    public static Text requirements(QuestBook book, ProgressView progress, Quest quest, boolean lightBackground) {
-        Formatting separator = lightBackground ? Formatting.DARK_GRAY : Formatting.GRAY;
         MutableText names = Text.empty();
         boolean first = true;
         for (String dependencyId : quest.dependencies()) {
@@ -100,15 +91,13 @@ public class QuestTexts {
                 continue;
             }
             if (!first) {
-                names.append(Text.literal(", ").formatted(separator));
+                names.append(Text.literal(", ").formatted(Formatting.GRAY));
             }
-            Formatting done = lightBackground ? Formatting.DARK_GREEN : Formatting.GREEN;
-            Formatting missing = lightBackground ? Formatting.DARK_RED : Formatting.RED;
-            names.append(title(dependency).copy().formatted(progress.hasEverCompleted(dependencyId) ? done : missing));
+            names.append(title(dependency).copy().formatted(progress.hasEverCompleted(dependencyId) ? Formatting.GREEN : Formatting.RED));
             first = false;
         }
         String key = quest.dependencyMode() == DependencyMode.ALL ? "gui.questz.requires.all" : "gui.questz.requires.any";
-        return Text.translatable(key, names).formatted(separator);
+        return Text.translatable(key, names).formatted(Formatting.GRAY);
     }
 
 }

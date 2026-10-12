@@ -28,6 +28,7 @@ import net.questz.book.QuestShape;
 import net.questz.book.QuestVisibility;
 import net.questz.client.render.RewardRenderers;
 import net.questz.client.render.TaskRenderers;
+import net.questz.client.screen.QuestzGui;
 import net.questz.network.packet.EditQuestPacket;
 import net.questz.reward.Reward;
 import net.questz.task.Task;
@@ -70,6 +71,8 @@ public class QuestEditScreen extends Screen {
     private final List<Task> tasks;
     private final List<Reward> rewards;
     private double listScroll;
+    private boolean draggingScrollbar;
+    private double dragOffset;
     private TextFieldWidget iconField;
     private TextFieldWidget sizeField;
     private ButtonWidget saveButton;
@@ -106,6 +109,14 @@ public class QuestEditScreen extends Screen {
 
     private int getListX() {
         return this.getLeft() + this.getColumnWidth() + 10;
+    }
+
+    private int getListWidth() {
+        return this.getColumnWidth() - QuestzGui.SCROLLBAR_WIDTH - 1;
+    }
+
+    private int getScrollbarX() {
+        return this.getListX() + this.getListWidth() + 1;
     }
 
     private int getListTop() {
@@ -240,7 +251,13 @@ public class QuestEditScreen extends Screen {
     }
 
     private double getMaxScroll() {
-        return Math.max(0, this.getRows().size() * ROW_HEIGHT - (this.getListBottom() - this.getListTop()));
+        return Math.max(0, this.getRows().size() * ROW_HEIGHT - (this.getListBottom() - this.getListTop() - 4));
+    }
+
+    @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        super.renderBackground(context, mouseX, mouseY, delta);
+        QuestzGui.drawPanel(context, this.getLeft() - 8, 2, this.getTotalWidth() + 16, this.height - 4);
     }
 
     @Override
@@ -254,24 +271,25 @@ public class QuestEditScreen extends Screen {
     }
 
     private void renderList(DrawContext context, int mouseX, int mouseY) {
-        int x = this.getListX();
-        int width = this.getColumnWidth();
         int top = this.getListTop();
         int bottom = this.getListBottom();
-        context.fill(x, top, x + width, bottom, 0x80000000);
-        context.enableScissor(x, top, x + width, bottom);
-        int y = top - (int) this.listScroll;
+        QuestzGui.drawInset(context, this.getListX(), top, this.getListWidth(), bottom - top);
+        QuestzGui.drawScrollbar(context, this.getScrollbarX(), top, bottom - top, this.listScroll, this.getMaxScroll());
+        int x = this.getListX() + 2;
+        int width = this.getListWidth() - 4;
+        context.enableScissor(this.getListX() + 1, top + 1, this.getListX() + this.getListWidth() - 1, bottom - 1);
+        int y = top + 2 - (int) this.listScroll;
         for (Row row : this.getRows()) {
             boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= Math.max(y, top) && mouseY < Math.min(y + ROW_HEIGHT, bottom);
             switch (row.kind()) {
-                case HEADER_TASKS -> context.drawText(this.textRenderer, Text.translatable("gui.questz.tasks"), x + 3, y + 4, 0xFFFFAA00, false);
-                case HEADER_REWARDS -> context.drawText(this.textRenderer, Text.translatable("gui.questz.rewards"), x + 3, y + 4, 0xFFFFAA00, false);
+                case HEADER_TASKS -> context.drawText(this.textRenderer, Text.translatable("gui.questz.tasks"), x + 3, y + 4, 0xFFFFAA00, true);
+                case HEADER_REWARDS -> context.drawText(this.textRenderer, Text.translatable("gui.questz.rewards"), x + 3, y + 4, 0xFFFFAA00, true);
                 case ADD_TASK, ADD_REWARD -> {
                     if (hovered) {
                         context.fill(x, y, x + width, y + ROW_HEIGHT, 0x30FFFFFF);
                     }
                     Text label = Text.translatable(row.kind() == RowKind.ADD_TASK ? "gui.questz.editor.add_task" : "gui.questz.editor.add_reward");
-                    context.drawText(this.textRenderer, label, x + 5, y + 4, 0xFF55FF55, false);
+                    context.drawText(this.textRenderer, label, x + 5, y + 4, 0xFF55FF55, true);
                 }
                 case TASK, REWARD -> {
                     if (hovered) {
@@ -286,9 +304,9 @@ public class QuestEditScreen extends Screen {
                     context.drawItemWithoutEntity(icon, 0, 0);
                     context.getMatrices().pop();
                     StringVisitable trimmed = this.textRenderer.trimToWidth(title, width - 32);
-                    context.drawText(this.textRenderer, Language.getInstance().reorder(trimmed), x + 18, y + 4, 0xFFFFFFFF, false);
+                    context.drawText(this.textRenderer, Language.getInstance().reorder(trimmed), x + 18, y + 4, 0xFFFFFFFF, true);
                     boolean deleteHovered = hovered && mouseX >= x + width - 12;
-                    context.drawText(this.textRenderer, Text.literal("✕"), x + width - 10, y + 4, deleteHovered ? 0xFFFF5555 : 0xFF888888, false);
+                    QuestzGui.drawIcon(context, QuestzGui.CLOSE, x + width - 12, y + 2, 12, deleteHovered);
                 }
             }
             y += ROW_HEIGHT;
@@ -301,12 +319,23 @@ public class QuestEditScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        int x = this.getListX();
-        int width = this.getColumnWidth();
-        if (button != 0 || mouseX < x || mouseX >= x + width || mouseY < this.getListTop() || mouseY >= this.getListBottom()) {
+        int top = this.getListTop();
+        int trackHeight = this.getListBottom() - top;
+        if (button == 0 && this.getMaxScroll() > 0 && mouseX >= this.getScrollbarX() && mouseX < this.getScrollbarX() + QuestzGui.SCROLLBAR_WIDTH && mouseY >= top
+                && mouseY < this.getListBottom()) {
+            int handleY = QuestzGui.handleY(top, trackHeight, this.listScroll, this.getMaxScroll());
+            int handleHeight = QuestzGui.handleHeight(trackHeight);
+            this.dragOffset = mouseY >= handleY && mouseY < handleY + handleHeight ? mouseY - handleY : handleHeight / 2.0D;
+            this.listScroll = QuestzGui.scrollForHandle(top, trackHeight, mouseY - this.dragOffset, this.getMaxScroll());
+            this.draggingScrollbar = true;
+            return true;
+        }
+        int x = this.getListX() + 2;
+        int width = this.getListWidth() - 4;
+        if (button != 0 || mouseX < x || mouseX >= x + width || mouseY < top + 2 || mouseY >= this.getListBottom() - 2) {
             return false;
         }
-        int index = (int) ((mouseY - this.getListTop() + this.listScroll) / ROW_HEIGHT);
+        int index = (int) ((mouseY - top - 2 + this.listScroll) / ROW_HEIGHT);
         List<Row> rows = this.getRows();
         if (index < 0 || index >= rows.size()) {
             return false;
@@ -370,11 +399,29 @@ public class QuestEditScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (mouseX >= this.getListX() && mouseX < this.getListX() + this.getColumnWidth() && mouseY >= this.getListTop() && mouseY < this.getListBottom()) {
+        if (mouseX >= this.getListX() && mouseX < this.getScrollbarX() + QuestzGui.SCROLLBAR_WIDTH && mouseY >= this.getListTop() && mouseY < this.getListBottom()) {
             this.listScroll = MathHelper.clamp(this.listScroll - verticalAmount * ROW_HEIGHT, 0.0D, this.getMaxScroll());
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (this.draggingScrollbar && button == 0) {
+            this.listScroll = QuestzGui.scrollForHandle(this.getListTop(), this.getListBottom() - this.getListTop(), mouseY - this.dragOffset, this.getMaxScroll());
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (this.draggingScrollbar && button == 0) {
+            this.draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override

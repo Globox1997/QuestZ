@@ -22,6 +22,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.questz.client.render.DisplayNames;
+import net.questz.client.screen.QuestzGui;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -285,6 +286,13 @@ public class EntryEditScreen<T> extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        super.renderBackground(context, mouseX, mouseY, delta);
+        QuestzGui.drawPanel(context, this.getContentLeft() - 8, 2, this.getContentWidth() + 16, this.height - 4);
+        QuestzGui.drawInset(context, this.getContentLeft(), this.height - 54, this.getContentWidth(), 24);
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 8, 0xFFFFFFFF);
@@ -293,16 +301,16 @@ public class EntryEditScreen<T> extends Screen {
         if (this.isShowingForm()) {
             List<FormField> form = this.getForm();
             if (form != null && form.isEmpty()) {
-                context.drawText(this.textRenderer, Text.translatable("gui.questz.editor.no_settings"), left, 55, 0xFFAAAAAA, false);
+                context.drawText(this.textRenderer, Text.translatable("gui.questz.editor.no_settings"), left, 55, QuestzGui.COLOR_LABEL, false);
             } else if (form != null) {
                 for (int i = 0; i < form.size(); i++) {
-                    context.drawText(this.textRenderer, this.label(form.get(i)), left, 55 + i * FORM_ROW_HEIGHT, 0xFFE0E0E0, false);
+                    context.drawText(this.textRenderer, this.label(form.get(i)), left, 55 + i * FORM_ROW_HEIGHT, QuestzGui.COLOR_LABEL, false);
                 }
             }
         }
-        List<OrderedText> lines = this.textRenderer.wrapLines(this.status, width);
+        List<OrderedText> lines = this.textRenderer.wrapLines(this.status, width - 8);
         for (int i = 0; i < Math.min(2, lines.size()); i++) {
-            context.drawText(this.textRenderer, lines.get(i), left, this.height - 50 + i * 10, 0xFFFFFFFF, true);
+            context.drawText(this.textRenderer, lines.get(i), left + 4, this.height - 51 + i * 10, 0xFFFFFFFF, true);
         }
     }
 

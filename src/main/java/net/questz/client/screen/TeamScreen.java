@@ -2,11 +2,13 @@ package net.questz.client.screen;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -23,84 +25,118 @@ import java.util.UUID;
 @Environment(EnvType.CLIENT)
 public class TeamScreen extends Screen {
 
-    private static final int ROW_HEIGHT = 14;
+    private static final int ROW_HEIGHT = 12;
+    private static final int GROUP_HEIGHT = 52;
 
     private final Screen parent;
     private int revision = -1;
     private String nameValue = "";
     private String inviteValue = "";
     private final List<UUID> memberOrder = new ArrayList<>();
+    private int panelX;
+    private int panelY;
+    private int panelWidth;
+    private int panelHeight;
+    private final List<Text> labels = new ArrayList<>();
+    private final List<int[]> labelPositions = new ArrayList<>();
 
     public TeamScreen(Screen parent) {
         super(Text.translatable("gui.questz.team"));
         this.parent = parent;
     }
 
-    private int getTotalWidth() {
-        return Math.min(this.width - 20, 320);
+    private int columnWidth() {
+        return (this.panelWidth - 14 - 6) / 2;
     }
 
-    private int getLeft() {
-        return (this.width - this.getTotalWidth()) / 2;
+    private int insetX() {
+        return this.panelX + 7;
     }
 
-    private int getColumnWidth() {
-        return (this.getTotalWidth() - 10) / 2;
+    private int insetY() {
+        return this.panelY + 22;
     }
 
-    private int getRightX() {
-        return this.getLeft() + this.getColumnWidth() + 10;
+    private int insetHeight() {
+        return this.panelHeight - 22 - 30;
+    }
+
+    private int rightX() {
+        return this.insetX() + this.columnWidth() + 6;
+    }
+
+    private int membersTop() {
+        return this.insetY() + 16;
+    }
+
+    private int invitesTop(ClientTeam team) {
+        return this.membersTop() + team.getMembers().size() * ROW_HEIGHT + 18;
     }
 
     @Override
     protected void init() {
+        if (this.parent.width != this.width || this.parent.height != this.height) {
+            this.parent.init(this.client, this.width, this.height);
+        }
+        this.panelWidth = Math.min(this.width - 20, 300);
+        this.panelHeight = Math.min(this.height - 12, 206);
+        this.panelX = (this.width - this.panelWidth) / 2;
+        this.panelY = (this.height - this.panelHeight) / 2;
         this.revision = ClientQuestData.getRevision();
+        this.labels.clear();
+        this.labelPositions.clear();
+
         ClientTeam team = ClientQuestData.getTeam();
-        int right = this.getRightX();
-        int column = this.getColumnWidth();
-        int y = 40;
+        int right = this.rightX();
+        int column = this.columnWidth();
+        int y = this.insetY();
 
         if (team != null && this.client != null && this.client.player != null) {
             boolean owner = team.getOwner().equals(this.client.player.getUuid());
             if (!team.isParty()) {
-                TextFieldWidget nameField = this.field(right, y, column, "gui.questz.team.name", this.nameValue);
+                this.label("gui.questz.team.label.create", right, y);
+                TextFieldWidget nameField = this.field(right, y + 10, column, "gui.questz.team.name", this.nameValue);
                 nameField.setChangedListener(value -> this.nameValue = value);
                 this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.create"), button -> this.run("create " + this.nameValue.trim()))
-                        .dimensions(right, y + 22, column, 20).build());
+                        .dimensions(right, y + 30, column, 18).build());
             } else {
-                TextFieldWidget inviteField = this.field(right, y, column, "gui.questz.team.player_name", this.inviteValue);
+                this.label("gui.questz.team.label.invite", right, y);
+                TextFieldWidget inviteField = this.field(right, y + 10, column, "gui.questz.team.player_name", this.inviteValue);
                 inviteField.setChangedListener(value -> this.inviteValue = value);
                 ButtonWidget invite = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.invite"), button -> this.run("invite " + this.inviteValue.trim()))
-                        .dimensions(right, y + 22, column, 20).build());
+                        .dimensions(right, y + 30, column, 18).build());
                 invite.active = owner;
-                y += 50;
+                y += GROUP_HEIGHT;
                 if (owner) {
-                    TextFieldWidget nameField = this.field(right, y, column, "gui.questz.team.name", this.nameValue);
+                    this.label("gui.questz.team.label.rename", right, y);
+                    TextFieldWidget nameField = this.field(right, y + 10, column, "gui.questz.team.name", this.nameValue);
                     nameField.setChangedListener(value -> this.nameValue = value);
                     this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.rename"), button -> this.run("rename " + this.nameValue.trim()))
-                            .dimensions(right, y + 22, column, 20).build());
-                    y += 50;
+                            .dimensions(right, y + 30, column, 18).build());
+                    y += GROUP_HEIGHT;
                 }
                 this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.leave"), button -> this.confirm("gui.questz.team.leave.confirm", "leave"))
-                        .dimensions(right, y, owner ? column / 2 - 1 : column, 20).build());
+                        .dimensions(right, y + 4, owner ? column / 2 - 1 : column, 18).build());
                 if (owner) {
                     this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.disband").formatted(Formatting.RED), button -> this.confirm("gui.questz.team.disband.confirm", "disband"))
-                            .dimensions(right + column / 2 + 1, y, column / 2 - 1, 20).build());
+                            .dimensions(right + column / 2 + 1, y + 4, column / 2 - 1, 18).build());
                 }
             }
-            int inviteY = this.getInvitesTop(team);
+            int inviteY = this.invitesTop(team);
             for (Map.Entry<UUID, String> invite : team.getInvites().entrySet()) {
                 ButtonWidget accept = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.team.accept"), button -> this.run("accept " + invite.getValue()))
-                        .dimensions(this.getLeft() + column - 50, inviteY, 50, 14).build());
+                        .dimensions(this.insetX() + column - 54, inviteY - 2, 50, 14).build());
                 accept.active = !team.isParty();
                 inviteY += 16;
             }
         }
-        this.addDrawableChild(ButtonWidget.builder(ScreenTexts.BACK, button -> this.close()).dimensions(this.width / 2 - 50, this.height - 26, 100, 20).build());
+        this.addDrawableChild(ButtonWidget.builder(ScreenTexts.BACK, button -> this.close())
+                .dimensions(this.panelX + this.panelWidth / 2 - 50, this.panelY + this.panelHeight - 25, 100, 20).build());
     }
 
-    private int getInvitesTop(ClientTeam team) {
-        return 40 + team.getMembers().size() * ROW_HEIGHT + 22;
+    private void label(String key, int x, int y) {
+        this.labels.add(Text.translatable(key));
+        this.labelPositions.add(new int[]{x, y});
     }
 
     private TextFieldWidget field(int x, int y, int width, String key, String value) {
@@ -137,46 +173,77 @@ public class TeamScreen extends Screen {
     }
 
     @Override
+    public void resize(MinecraftClient client, int width, int height) {
+        this.parent.resize(client, width, height);
+        super.resize(client, width, height);
+    }
+
+    @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        this.parent.render(context, -1, -1, delta);
+        MatrixStack matrices = context.getMatrices();
+        matrices.push();
+        matrices.translate(0.0F, 0.0F, 400.0F);
+        context.fill(0, 0, this.width, this.height, 0x99000000);
+        QuestzGui.drawPanel(context, this.panelX, this.panelY, this.panelWidth, this.panelHeight);
+        QuestzGui.drawInset(context, this.insetX(), this.insetY(), this.columnWidth(), this.insetHeight());
+        for (int i = 0; i < this.labels.size(); i++) {
+            int[] position = this.labelPositions.get(i);
+            context.drawText(this.textRenderer, this.labels.get(i), position[0], position[1], QuestzGui.COLOR_LABEL, false);
+        }
+        this.drawTeam(context, mouseX, mouseY);
         super.render(context, mouseX, mouseY, delta);
+        matrices.pop();
+    }
+
+    private void drawTeam(DrawContext context, int mouseX, int mouseY) {
         ClientTeam team = ClientQuestData.getTeam();
-        int left = this.getLeft();
-        int column = this.getColumnWidth();
+        int left = this.insetX() + 4;
+        int column = this.columnWidth();
         if (team == null || this.client == null || this.client.player == null) {
-            context.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("gui.questz.team.loading"), this.width / 2, 40, 0xFFAAAAAA);
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.questz.team.loading"), this.panelX + 8, this.panelY + 8, 0xFFFFFFFF);
             return;
         }
         Text type = Text.translatable(team.isParty() ? "command.questz.team.party" : "command.questz.team.personal").formatted(Formatting.GRAY);
-        context.drawCenteredTextWithShadow(this.textRenderer, Text.literal(team.getName()).append(" ").append(type), this.width / 2, 12, 0xFFFFFFFF);
+        context.drawTextWithShadow(this.textRenderer, Text.literal(team.getName()).append(" ").append(type), this.panelX + 8, this.panelY + 8, 0xFFFFFFFF);
 
-        context.drawText(this.textRenderer, Text.translatable("gui.questz.team.members"), left, 28, 0xFFFFAA00, false);
+        context.enableScissor(this.insetX() + 1, this.insetY() + 1, this.insetX() + column - 1, this.insetY() + this.insetHeight() - 1);
+        context.drawText(this.textRenderer, Text.translatable("gui.questz.team.members"), left, this.insetY() + 4, 0xFFFFAA00, true);
         boolean owner = team.getOwner().equals(this.client.player.getUuid());
         this.memberOrder.clear();
-        int y = 40;
+        int y = this.membersTop();
         for (Map.Entry<UUID, String> member : team.getMembers().entrySet()) {
             this.memberOrder.add(member.getKey());
             boolean isOwner = member.getKey().equals(team.getOwner());
-            Text name = Text.literal((isOwner ? "★ " : "  ") + member.getValue()).formatted(isOwner ? Formatting.GOLD : Formatting.WHITE);
-            context.drawText(this.textRenderer, name, left, y + 3, 0xFFFFFFFF, false);
+            if (isOwner) {
+                QuestzGui.drawIcon(context, QuestzGui.STAR, left - 2, y, 12, true);
+            }
+            Text name = Text.literal(member.getValue()).formatted(isOwner ? Formatting.GOLD : Formatting.WHITE);
+            context.drawText(this.textRenderer, name, left + 11, y + 2, 0xFFFFFFFF, true);
             if (owner && team.isParty() && !member.getKey().equals(this.client.player.getUuid())) {
-                boolean hovered = mouseX >= left + column - 12 && mouseX < left + column && mouseY >= y && mouseY < y + ROW_HEIGHT;
-                context.drawText(this.textRenderer, Text.literal("✕"), left + column - 10, y + 3, hovered ? 0xFFFF5555 : 0xFF888888, false);
+                boolean hovered = this.getKickTarget(mouseX, mouseY) == member.getKey();
+                QuestzGui.drawIcon(context, QuestzGui.CLOSE, this.insetX() + column - 14, y, 12, hovered);
             }
             y += ROW_HEIGHT;
         }
 
-        int inviteY = this.getInvitesTop(team);
-        context.drawText(this.textRenderer, Text.translatable("gui.questz.team.invites"), left, inviteY - 12, 0xFFFFAA00, false);
+        int inviteY = this.invitesTop(team);
+        context.drawText(this.textRenderer, Text.translatable("gui.questz.team.invites"), left, inviteY - 14, 0xFFFFAA00, true);
         if (team.getInvites().isEmpty()) {
-            context.drawText(this.textRenderer, Text.translatable("gui.questz.team.no_invites"), left, inviteY + 3, 0xFF888888, false);
+            context.drawText(this.textRenderer, Text.translatable("gui.questz.team.no_invites"), left, inviteY + 1, 0xFFA0A0A0, true);
         }
         for (String partyName : team.getInvites().values()) {
-            context.drawText(this.textRenderer, Text.literal(partyName), left, inviteY + 3, 0xFFFFFFFF, false);
+            context.drawText(this.textRenderer, Text.literal(partyName), left, inviteY + 1, 0xFFFFFFFF, true);
             inviteY += 16;
         }
         if (team.isParty() && !team.getInvites().isEmpty()) {
-            context.drawText(this.textRenderer, Text.translatable("gui.questz.team.leave_first"), left, inviteY + 3, 0xFF888888, false);
+            context.drawText(this.textRenderer, Text.translatable("gui.questz.team.leave_first"), left, inviteY + 1, 0xFFA0A0A0, true);
         }
+        context.disableScissor();
     }
 
     @Nullable
@@ -185,13 +252,12 @@ public class TeamScreen extends Screen {
         if (team == null || this.client == null || this.client.player == null || !team.isParty() || !team.getOwner().equals(this.client.player.getUuid())) {
             return null;
         }
-        int left = this.getLeft();
-        int column = this.getColumnWidth();
-        if (mouseX < left + column - 12 || mouseX >= left + column) {
+        int right = this.insetX() + this.columnWidth();
+        if (mouseX < right - 14 || mouseX >= right - 2) {
             return null;
         }
-        int index = (int) ((mouseY - 40) / ROW_HEIGHT);
-        if (mouseY < 40 || index >= this.memberOrder.size()) {
+        int index = (int) Math.floor((mouseY - this.membersTop()) / ROW_HEIGHT);
+        if (mouseY < this.membersTop() || index >= this.memberOrder.size()) {
             return null;
         }
         UUID target = this.memberOrder.get(index);
@@ -223,6 +289,11 @@ public class TeamScreen extends Screen {
         if (this.client != null) {
             this.client.setScreen(this.parent);
         }
+    }
+
+    @Override
+    public boolean shouldPause() {
+        return false;
     }
 
 }

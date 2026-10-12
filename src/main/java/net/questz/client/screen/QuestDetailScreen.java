@@ -17,10 +17,8 @@ import net.minecraft.text.OrderedText;
 import net.minecraft.text.StringVisitable;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
-import net.questz.QuestzMain;
 import net.questz.book.Quest;
 import net.questz.book.QuestBook;
 import net.questz.client.ClientQuestData;
@@ -45,28 +43,33 @@ import java.util.List;
 @Environment(EnvType.CLIENT)
 public class QuestDetailScreen extends Screen {
 
-    private static final Identifier PANEL_TEXTURE = QuestzMain.identifierOf("textures/gui/task.png");
-    private static final int PANEL_TEXTURE_SIZE = 15;
-    private static final int PANEL_BORDER = 4;
-    private static final int COLOR_TEXT = 0xFF404040;
-    private static final int COLOR_TEXT_LIGHT = 0xFF555555;
-    private static final int COLOR_TEXT_MUTED = 0xFF808080;
-    private static final int COLOR_TEXT_DONE = 0xFF00AA00;
-    private static final int COLOR_HEADER = 0xFF8A5A00;
-    private static final int COLOR_LINE = 0xFF8B8B8B;
-    private static final int COLOR_HOVER = 0x40FFFFFF;
     private static final int PANEL_WIDTH = 256;
     private static final int PANEL_HEIGHT = 206;
-    private static final int BODY_TOP = 40;
-    private static final int BODY_BOTTOM = 30;
+    private static final int HEADER_HEIGHT = 36;
+    private static final int FOOTER_HEIGHT = 29;
     private static final int TEXT_HEIGHT = 10;
-    private static final int ENTRY_HEIGHT = 18;
+    private static final int ENTRY_HEIGHT = 20;
+    private static final int INLINE_BUTTON_HEIGHT = 14;
+    private static final int COLOR_TEXT = 0xFFFFFFFF;
+    private static final int COLOR_DESCRIPTION = 0xFFE0E0E0;
+    private static final int COLOR_MUTED = 0xFFA0A0A0;
+    private static final int COLOR_DONE = 0xFF55FF55;
+    private static final int COLOR_HEADER = 0xFFFFAA00;
+    private static final int COLOR_HOVER = 0x20FFFFFF;
+    private static final int TRACK_WIDTH = QuestzGui.SCROLLBAR_WIDTH;
+    private static final int INSET_BORDER = QuestzGui.INSET_BORDER;
 
     private record Row(int height, @Nullable OrderedText text, int color, @Nullable Task task, @Nullable Reward reward, int option) {
 
         Row(int height, @Nullable OrderedText text, int color, @Nullable Task task, @Nullable Reward reward) {
             this(height, text, color, task, reward, -1);
         }
+    }
+
+    private record InlineButton(Text label, boolean active, Runnable action) {
+    }
+
+    private record RowHit(Row row, int y) {
     }
 
     private final QuestBookScreen parent;
@@ -77,6 +80,8 @@ public class QuestDetailScreen extends Screen {
     private final List<Row> rows = new ArrayList<>();
     private int contentHeight;
     private double scroll;
+    private boolean draggingScrollbar;
+    private double dragOffset;
     private int panelX;
     private int panelY;
     private ButtonWidget claimButton;
@@ -96,9 +101,9 @@ public class QuestDetailScreen extends Screen {
         this.panelX = (this.width - PANEL_WIDTH) / 2;
         this.panelY = Math.max(0, (this.height - PANEL_HEIGHT) / 2);
         int buttonY = this.panelY + PANEL_HEIGHT - 25;
-        this.claimButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.claim"), button -> this.sendAction(QuestActionPacket.Action.CLAIM, "", 0))
-                .dimensions(this.panelX + 7, buttonY, 74, 20).build());
         this.submitButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.submit"), button -> this.sendAction(QuestActionPacket.Action.SUBMIT, "", 0))
+                .dimensions(this.panelX + 7, buttonY, 74, 20).build());
+        this.claimButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("gui.questz.claim"), button -> this.sendAction(QuestActionPacket.Action.CLAIM, "", 0))
                 .dimensions(this.panelX + 83, buttonY, 74, 20).build());
         this.addDrawableChild(ButtonWidget.builder(ScreenTexts.BACK, button -> this.close())
                 .dimensions(this.panelX + PANEL_WIDTH - 81, buttonY, 74, 20).build());
@@ -110,6 +115,54 @@ public class QuestDetailScreen extends Screen {
     public void resize(MinecraftClient client, int width, int height) {
         this.parent.resize(client, width, height);
         super.resize(client, width, height);
+    }
+
+    private int insetLeft() {
+        return this.panelX + 7;
+    }
+
+    private int insetTop() {
+        return this.panelY + HEADER_HEIGHT;
+    }
+
+    private int insetRight() {
+        return this.panelX + PANEL_WIDTH - 7 - TRACK_WIDTH - 1;
+    }
+
+    private int insetBottom() {
+        return this.panelY + PANEL_HEIGHT - FOOTER_HEIGHT;
+    }
+
+    private int trackX() {
+        return this.insetRight() + 1;
+    }
+
+    private int contentLeft() {
+        return this.insetLeft() + INSET_BORDER + 3;
+    }
+
+    private int contentRight() {
+        return this.insetRight() - INSET_BORDER - 3;
+    }
+
+    private int contentTop() {
+        return this.insetTop() + INSET_BORDER + 2;
+    }
+
+    private int getBodyHeight() {
+        return this.insetBottom() - INSET_BORDER - 2 - this.contentTop();
+    }
+
+    private double getMaxScroll() {
+        return Math.max(0, this.contentHeight - this.getBodyHeight());
+    }
+
+    private int getHandleHeight() {
+        return QuestzGui.handleHeight(this.insetBottom() - this.insetTop());
+    }
+
+    private int getHandleY() {
+        return QuestzGui.handleY(this.insetTop(), this.insetBottom() - this.insetTop(), this.scroll, this.getMaxScroll());
     }
 
     private void refresh() {
@@ -129,14 +182,15 @@ public class QuestDetailScreen extends Screen {
         this.claimButton.visible = !this.quest.rewards().isEmpty();
         this.submitButton.visible = hasSubmitTasks;
         this.submitButton.active = hasSubmitTasks && QuestEngine.canProgress(book, progress, this.quest);
+        this.claimButton.setX(this.panelX + (hasSubmitTasks ? 83 : 7));
     }
 
     private void buildRows() {
         this.rows.clear();
-        int width = PANEL_WIDTH - 24;
+        int width = this.contentRight() - this.contentLeft();
         for (Text description : this.quest.description()) {
             for (OrderedText line : this.textRenderer.wrapLines(description, width)) {
-                this.rows.add(new Row(TEXT_HEIGHT, line, COLOR_TEXT_LIGHT, null, null));
+                this.rows.add(new Row(TEXT_HEIGHT, line, COLOR_DESCRIPTION, null, null));
             }
         }
         if (!this.quest.description().isEmpty()) {
@@ -164,14 +218,6 @@ public class QuestDetailScreen extends Screen {
         this.scroll = MathHelper.clamp(this.scroll, 0.0D, this.getMaxScroll());
     }
 
-    private int getBodyHeight() {
-        return PANEL_HEIGHT - BODY_TOP - BODY_BOTTOM;
-    }
-
-    private double getMaxScroll() {
-        return Math.max(0, this.contentHeight - this.getBodyHeight());
-    }
-
     private OrderedText trim(Text text, int width) {
         if (this.textRenderer.getWidth(text) <= width) {
             return text.asOrderedText();
@@ -196,35 +242,14 @@ public class QuestDetailScreen extends Screen {
         matrices.push();
         matrices.translate(0.0F, 0.0F, 400.0F);
         context.fill(0, 0, this.width, this.height, 0x99000000);
-        this.drawPanel(context, this.panelX, this.panelY, PANEL_WIDTH, PANEL_HEIGHT);
+        QuestzGui.drawPanel(context, this.panelX, this.panelY, PANEL_WIDTH, PANEL_HEIGHT);
         this.drawHeader(context);
-        Row hovered = this.drawBody(context, mouseX, mouseY);
+        QuestzGui.drawInset(context, this.insetLeft(), this.insetTop(), this.insetRight() - this.insetLeft(), this.insetBottom() - this.insetTop());
+        QuestzGui.drawScrollbar(context, this.trackX(), this.insetTop(), this.insetBottom() - this.insetTop(), this.scroll, this.getMaxScroll());
+        RowHit hovered = this.drawBody(context, mouseX, mouseY);
         super.render(context, mouseX, mouseY, delta);
         this.drawRowTooltip(context, hovered, mouseX, mouseY);
         matrices.pop();
-    }
-
-    private void drawPanel(DrawContext context, int x, int y, int width, int height) {
-        int border = PANEL_BORDER;
-        int center = PANEL_TEXTURE_SIZE - border * 2;
-        int innerWidth = width - border * 2;
-        int innerHeight = height - border * 2;
-        int far = PANEL_TEXTURE_SIZE - border;
-        panelSlice(context, x, y, border, border, 0, 0, border, border);
-        panelSlice(context, x + border, y, innerWidth, border, border, 0, center, border);
-        panelSlice(context, x + width - border, y, border, border, far, 0, border, border);
-        panelSlice(context, x, y + border, border, innerHeight, 0, border, border, center);
-        panelSlice(context, x + border, y + border, innerWidth, innerHeight, border, border, center, center);
-        panelSlice(context, x + width - border, y + border, border, innerHeight, far, border, border, center);
-        panelSlice(context, x, y + height - border, border, border, 0, far, border, border);
-        panelSlice(context, x + border, y + height - border, innerWidth, border, border, far, center, border);
-        panelSlice(context, x + width - border, y + height - border, border, border, far, far, border, border);
-    }
-
-    private static void panelSlice(DrawContext context, int x, int y, int width, int height, int u, int v, int uWidth, int vHeight) {
-        if (width > 0 && height > 0) {
-            context.drawTexture(PANEL_TEXTURE, x, y, width, height, u, v, uWidth, vHeight, PANEL_TEXTURE_SIZE, PANEL_TEXTURE_SIZE);
-        }
     }
 
     private void drawHeader(DrawContext context) {
@@ -232,113 +257,163 @@ public class QuestDetailScreen extends Screen {
         ProgressView progress = QuestTexts.progress();
         boolean completed = progress.isCompleted(this.quest.id());
         AdvancementObtainedStatus status = completed ? AdvancementObtainedStatus.OBTAINED : AdvancementObtainedStatus.UNOBTAINED;
-        context.drawGuiTexture(status.getFrameTexture(this.quest.shape().getFrame()), this.panelX + 7, this.panelY + 7, 26, 26);
-        context.drawItemWithoutEntity(QuestTexts.icon(this.quest), this.panelX + 12, this.panelY + 12);
-        context.drawText(this.textRenderer, this.trim(QuestTexts.title(this.quest), PANEL_WIDTH - 50), this.panelX + 40, this.panelY + 10, COLOR_TEXT, false);
-        Text statusText = QuestTexts.isUnlocked(book, progress, this.quest) || this.quest.dependencies().isEmpty()
-                ? QuestTexts.status(book, progress, this.quest, true)
-                : QuestTexts.requirements(book, progress, this.quest, true);
+        context.drawGuiTexture(status.getFrameTexture(this.quest.shape().getFrame()), this.panelX + 6, this.panelY + 6, 26, 26);
+        context.drawItemWithoutEntity(QuestTexts.icon(this.quest), this.panelX + 11, this.panelY + 11);
+        int textWidth = PANEL_WIDTH - 48 - (this.quest.repeatable() ? 18 : 0);
+        context.drawTextWithShadow(this.textRenderer, this.trim(QuestTexts.title(this.quest), textWidth), this.panelX + 37, this.panelY + 9, COLOR_TEXT);
         if (this.quest.repeatable()) {
-            statusText = statusText.copy().append(Text.translatable("gui.questz.repeatable", progress.getCompletions(this.quest.id())).formatted(Formatting.DARK_AQUA));
+            QuestzGui.drawIcon(context, QuestzGui.REFRESH, this.getRepeatIconX(), this.panelY + 9, 16, true);
         }
-        context.drawText(this.textRenderer, this.trim(statusText, PANEL_WIDTH - 50), this.panelX + 40, this.panelY + 22, COLOR_TEXT, false);
-        context.fill(this.panelX + 6, this.panelY + BODY_TOP - 3, this.panelX + PANEL_WIDTH - 6, this.panelY + BODY_TOP - 2, COLOR_LINE);
+        Text statusText = QuestTexts.isUnlocked(book, progress, this.quest) || this.quest.dependencies().isEmpty()
+                ? QuestTexts.status(book, progress, this.quest)
+                : QuestTexts.requirements(book, progress, this.quest);
+        context.drawTextWithShadow(this.textRenderer, this.trim(statusText, textWidth), this.panelX + 37, this.panelY + 20, COLOR_TEXT);
     }
 
     @Nullable
-    private Row drawBody(DrawContext context, int mouseX, int mouseY) {
-        int left = this.panelX + 8;
-        int right = this.panelX + PANEL_WIDTH - 8;
-        int top = this.panelY + BODY_TOP;
+    private RowHit drawBody(DrawContext context, int mouseX, int mouseY) {
+        int left = this.contentLeft();
+        int right = this.contentRight();
+        int top = this.contentTop();
         int bottom = top + this.getBodyHeight();
         boolean mouseInBody = mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom;
         ProgressView progress = QuestTexts.progress();
         ClientTeam team = ClientQuestData.getTeam();
-        boolean canProgress = QuestEngine.canProgress(ClientQuestData.getBook(), progress, this.quest);
-        Row hovered = null;
+        RowHit hovered = null;
 
-        context.enableScissor(left, top, right, bottom);
+        context.enableScissor(this.insetLeft() + INSET_BORDER, this.insetTop() + INSET_BORDER, this.insetRight() - INSET_BORDER, this.insetBottom() - INSET_BORDER);
         int y = top - (int) this.scroll;
         for (Row row : this.rows) {
             if (y + row.height() > top && y < bottom) {
                 boolean rowHovered = mouseInBody && mouseY >= y && mouseY < y + row.height();
                 if (rowHovered) {
-                    hovered = row;
+                    hovered = new RowHit(row, y);
                 }
+                InlineButton inlineButton = this.getInlineButton(row);
+                int buttonWidth = inlineButton != null ? this.getInlineButtonWidth(inlineButton) : 0;
                 if (row.text() != null) {
-                    context.drawText(this.textRenderer, row.text(), left + 2, y + 1, row.color(), false);
+                    context.drawText(this.textRenderer, row.text(), left, y + 1, row.color(), true);
                 } else if (row.task() != null) {
                     Task task = row.task();
                     boolean done = QuestEngine.isTaskComplete(progress, this.quest, task);
-                    boolean clickable = task instanceof CheckmarkTask && !done && canProgress;
-                    if (clickable && rowHovered) {
-                        context.fill(left, y, right, y + row.height(), COLOR_HOVER);
+                    if (rowHovered) {
+                        context.fill(left - 2, y, right + 2, y + row.height(), COLOR_HOVER);
                     }
-                    context.drawItemWithoutEntity(TaskRenderers.getIcon(task), left + 2, y + 1);
-                    Text status = this.taskStatus(task, done, clickable, progress);
-                    int statusWidth = this.textRenderer.getWidth(status);
-                    context.drawText(this.textRenderer, this.trim(TaskRenderers.getTitle(task), right - left - 30 - statusWidth), left + 22, y + 5, done ? COLOR_TEXT_DONE : COLOR_TEXT, false);
-                    context.drawText(this.textRenderer, status, right - 2 - statusWidth, y + 5, COLOR_TEXT, false);
+                    QuestzGui.drawSlot(context, left, y + 1);
+                    context.drawItemWithoutEntity(TaskRenderers.getIcon(task), left + 1, y + 2);
+                    Text status = inlineButton != null ? Text.empty() : this.taskStatus(task, done, progress);
+                    int statusWidth = inlineButton != null ? buttonWidth + 2 : done ? 18 : this.textRenderer.getWidth(status);
+                    if (done && inlineButton == null) {
+                        QuestzGui.drawIcon(context, QuestzGui.CHECK, right - 16, y + 2, 16, true);
+                    }
+                    context.drawText(this.textRenderer, this.trim(TaskRenderers.getTitle(task), right - left - 24 - statusWidth), left + 22, y + 6, done ? COLOR_DONE : COLOR_TEXT, true);
+                    context.drawText(this.textRenderer, status, right - this.textRenderer.getWidth(status), y + 6, COLOR_TEXT, true);
                 } else if (row.reward() instanceof ChoiceReward choice && row.option() >= 0) {
                     ItemStack option = choice.getOptions().get(row.option());
                     boolean claimed = team != null && team.isRewardClaimed(this.quest.id(), choice.getId());
-                    boolean choosable = !claimed && team != null && team.isCompleted(this.quest.id());
-                    if (choosable && rowHovered) {
-                        context.fill(left + 12, y, right, y + row.height(), COLOR_HOVER);
+                    if (rowHovered) {
+                        context.fill(left + 10, y, right + 2, y + row.height(), COLOR_HOVER);
                     }
-                    context.drawItemWithoutEntity(option, left + 14, y + 1);
-                    context.drawItemInSlot(this.textRenderer, option, left + 14, y + 1);
-                    Text status = choosable ? Text.translatable("gui.questz.choose").formatted(Formatting.DARK_BLUE) : Text.empty();
-                    int statusWidth = this.textRenderer.getWidth(status);
-                    context.drawText(this.textRenderer, this.trim(option.getName(), right - left - 42 - statusWidth), left + 34, y + 5, claimed ? COLOR_TEXT_MUTED : COLOR_TEXT_LIGHT, false);
-                    context.drawText(this.textRenderer, status, right - 2 - statusWidth, y + 5, COLOR_TEXT, false);
+                    QuestzGui.drawSlot(context, left + 12, y + 1);
+                    context.drawItemWithoutEntity(option, left + 13, y + 2);
+                    context.drawItemInSlot(this.textRenderer, option, left + 13, y + 2);
+                    int statusWidth = inlineButton != null ? buttonWidth + 2 : 0;
+                    context.drawText(this.textRenderer, this.trim(option.getName(), right - left - 36 - statusWidth), left + 34, y + 6, claimed ? COLOR_MUTED : COLOR_DESCRIPTION, true);
                 } else if (row.reward() != null) {
                     Reward reward = row.reward();
                     ItemStack icon = RewardRenderers.getIcon(reward);
                     boolean claimed = team != null && team.isRewardClaimed(this.quest.id(), reward.getId());
-                    context.drawItemWithoutEntity(icon, left + 2, y + 1);
-                    context.drawItemInSlot(this.textRenderer, icon, left + 2, y + 1);
-                    Text status = claimed ? Text.translatable("gui.questz.claimed").formatted(Formatting.DARK_GRAY)
-                            : reward.isTeamReward() ? Text.translatable("gui.questz.team_reward").formatted(Formatting.DARK_AQUA) : Text.empty();
+                    if (rowHovered) {
+                        context.fill(left - 2, y, right + 2, y + row.height(), COLOR_HOVER);
+                    }
+                    QuestzGui.drawSlot(context, left, y + 1);
+                    context.drawItemWithoutEntity(icon, left + 1, y + 2);
+                    context.drawItemInSlot(this.textRenderer, icon, left + 1, y + 2);
+                    Text status = claimed ? Text.translatable("gui.questz.claimed").formatted(Formatting.GRAY)
+                            : reward.isTeamReward() ? Text.translatable("gui.questz.team_reward").formatted(Formatting.AQUA) : Text.empty();
                     int statusWidth = this.textRenderer.getWidth(status);
-                    context.drawText(this.textRenderer, this.trim(RewardRenderers.getTitle(reward), right - left - 30 - statusWidth), left + 22, y + 5, claimed ? COLOR_TEXT_MUTED : COLOR_TEXT, false);
-                    context.drawText(this.textRenderer, status, right - 2 - statusWidth, y + 5, COLOR_TEXT, false);
+                    Text title = reward instanceof ItemReward itemReward ? itemReward.getItem().getName() : RewardRenderers.getTitle(reward);
+                    context.drawText(this.textRenderer, this.trim(title, right - left - 24 - statusWidth), left + 22, y + 6, claimed ? COLOR_MUTED : COLOR_TEXT, true);
+                    context.drawText(this.textRenderer, status, right - statusWidth, y + 6, COLOR_TEXT, true);
+                }
+                if (inlineButton != null) {
+                    this.drawInlineButton(context, inlineButton, right - buttonWidth, y + (row.height() - INLINE_BUTTON_HEIGHT) / 2, buttonWidth, mouseX, mouseY, mouseInBody);
                 }
             }
             y += row.height();
         }
         context.disableScissor();
-
-        if (this.getMaxScroll() > 0) {
-            int barHeight = Math.max(10, this.getBodyHeight() * this.getBodyHeight() / this.contentHeight);
-            int barY = top + (int) ((this.getBodyHeight() - barHeight) * (this.scroll / this.getMaxScroll()));
-            context.fill(right + 2, barY, right + 4, barY + barHeight, COLOR_LINE);
-        }
         return hovered;
     }
 
-    private Text taskStatus(Task task, boolean done, boolean clickable, ProgressView progress) {
-        if (done) {
-            return Text.literal("✔").formatted(Formatting.DARK_GREEN);
+    @Nullable
+    private InlineButton getInlineButton(Row row) {
+        ProgressView progress = QuestTexts.progress();
+        if (row.task() instanceof CheckmarkTask task && !QuestEngine.isTaskComplete(progress, this.quest, task)) {
+            boolean active = QuestEngine.canProgress(ClientQuestData.getBook(), progress, this.quest);
+            return new InlineButton(Text.translatable("gui.questz.complete"), active, () -> this.sendAction(QuestActionPacket.Action.CHECKMARK, task.getId(), 0));
         }
-        if (clickable) {
-            return Text.translatable("gui.questz.click_to_complete").formatted(Formatting.DARK_BLUE);
+        if (row.reward() instanceof ChoiceReward choice && row.option() >= 0) {
+            ClientTeam team = ClientQuestData.getTeam();
+            if (team != null && team.isRewardClaimed(this.quest.id(), choice.getId())) {
+                return null;
+            }
+            boolean active = team != null && team.isCompleted(this.quest.id());
+            int option = row.option();
+            return new InlineButton(Text.translatable("gui.questz.choose"), active, () -> this.sendAction(QuestActionPacket.Action.CHOOSE, choice.getId(), option));
+        }
+        return null;
+    }
+
+    private int getInlineButtonWidth(InlineButton button) {
+        return Math.max(40, this.textRenderer.getWidth(button.label()) + 10);
+    }
+
+    private boolean isOverInlineButton(InlineButton button, int rowY, int rowHeight, double mouseX, double mouseY) {
+        int width = this.getInlineButtonWidth(button);
+        int x = this.contentRight() - width;
+        int y = rowY + (rowHeight - INLINE_BUTTON_HEIGHT) / 2;
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + INLINE_BUTTON_HEIGHT;
+    }
+
+    private void drawInlineButton(DrawContext context, InlineButton button, int x, int y, int width, int mouseX, int mouseY, boolean mouseInBody) {
+        boolean hovered = mouseInBody && mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + INLINE_BUTTON_HEIGHT;
+        QuestzGui.drawButton(context, x, y, width, INLINE_BUTTON_HEIGHT, button.active(), hovered);
+        context.drawCenteredTextWithShadow(this.textRenderer, button.label(), x + width / 2, y + (INLINE_BUTTON_HEIGHT - 8) / 2, button.active() ? 0xFFFFFF : 0xA0A0A0);
+    }
+
+    private Text taskStatus(Task task, boolean done, ProgressView progress) {
+        if (done) {
+            return Text.empty();
         }
         if (task.getTarget() <= 1L) {
             return Text.empty();
         }
-        return Text.literal(progress.getProgress(this.quest.id(), task.getId()) + "/" + task.getTarget()).formatted(Formatting.DARK_GRAY);
+        return Text.literal(progress.getProgress(this.quest.id(), task.getId()) + "/" + task.getTarget()).formatted(Formatting.GRAY);
     }
 
-    private void drawRowTooltip(DrawContext context, @Nullable Row row, int mouseX, int mouseY) {
-        int iconLeft = this.panelX + 10;
-        if (row == null || mouseX < iconLeft || mouseX >= iconLeft + 16) {
+    private int getRepeatIconX() {
+        return this.panelX + PANEL_WIDTH - 24;
+    }
+
+    private void drawRowTooltip(DrawContext context, @Nullable RowHit hit, int mouseX, int mouseY) {
+        if (this.quest != null && this.quest.repeatable() && mouseX >= this.getRepeatIconX() && mouseX < this.getRepeatIconX() + 16 && mouseY >= this.panelY + 9
+                && mouseY < this.panelY + 25) {
+            context.drawTooltip(this.textRenderer, Text.translatable("gui.questz.repeatable", QuestTexts.progress().getCompletions(this.quest.id())), mouseX, mouseY);
             return;
         }
+        int iconLeft = this.contentLeft();
+        if (hit == null || this.draggingScrollbar) {
+            return;
+        }
+        Row row = hit.row();
         if (row.reward() instanceof ChoiceReward choice && row.option() >= 0) {
-            if (mouseX >= iconLeft + 12 && mouseX < iconLeft + 28) {
+            if (mouseX >= iconLeft + 12 && mouseX < iconLeft + 30) {
                 context.drawItemTooltip(this.textRenderer, choice.getOptions().get(row.option()), mouseX, mouseY);
             }
+            return;
+        }
+        if (mouseX < iconLeft || mouseX >= iconLeft + QuestzGui.SLOT_SIZE) {
             return;
         }
         if (row.task() instanceof ItemTask itemTask) {
@@ -352,6 +427,14 @@ public class QuestDetailScreen extends Screen {
         }
     }
 
+    private boolean isOverTrack(double mouseX, double mouseY) {
+        return mouseX >= this.trackX() && mouseX < this.trackX() + TRACK_WIDTH && mouseY >= this.insetTop() && mouseY < this.insetBottom();
+    }
+
+    private void scrollToHandle(double handleTop) {
+        this.scroll = QuestzGui.scrollForHandle(this.insetTop(), this.insetBottom() - this.insetTop(), handleTop, this.getMaxScroll());
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) {
@@ -360,36 +443,56 @@ public class QuestDetailScreen extends Screen {
         if (button != 0 || this.quest == null) {
             return false;
         }
-        Row row = this.getRowAt(mouseX, mouseY);
-        if (row != null && row.reward() instanceof ChoiceReward choice && row.option() >= 0) {
-            ClientTeam team = ClientQuestData.getTeam();
-            if (team != null && team.isCompleted(this.quest.id()) && !team.isRewardClaimed(this.quest.id(), choice.getId())) {
-                this.sendAction(QuestActionPacket.Action.CHOOSE, choice.getId(), row.option());
-                return true;
+        if (this.isOverTrack(mouseX, mouseY) && this.getMaxScroll() > 0) {
+            int handleY = this.getHandleY();
+            if (mouseY >= handleY && mouseY < handleY + this.getHandleHeight()) {
+                this.dragOffset = mouseY - handleY;
+            } else {
+                this.dragOffset = this.getHandleHeight() / 2.0D;
+                this.scrollToHandle(mouseY - this.dragOffset);
             }
+            this.draggingScrollbar = true;
+            return true;
         }
-        if (row != null && row.task() instanceof CheckmarkTask task) {
-            ProgressView progress = QuestTexts.progress();
-            if (!QuestEngine.isTaskComplete(progress, this.quest, task) && QuestEngine.canProgress(ClientQuestData.getBook(), progress, this.quest)) {
-                this.sendAction(QuestActionPacket.Action.CHECKMARK, task.getId(), 0);
+        RowHit hit = this.getRowAt(mouseX, mouseY);
+        if (hit != null) {
+            InlineButton inlineButton = this.getInlineButton(hit.row());
+            if (inlineButton != null && inlineButton.active() && this.isOverInlineButton(inlineButton, hit.y(), hit.row().height(), mouseX, mouseY)) {
+                inlineButton.action().run();
                 return true;
             }
         }
         return false;
     }
 
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (this.draggingScrollbar && button == 0) {
+            this.scrollToHandle(mouseY - this.dragOffset);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (this.draggingScrollbar && button == 0) {
+            this.draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
     @Nullable
-    private Row getRowAt(double mouseX, double mouseY) {
-        int left = this.panelX + 8;
-        int right = this.panelX + PANEL_WIDTH - 8;
-        int top = this.panelY + BODY_TOP;
-        if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= top + this.getBodyHeight()) {
+    private RowHit getRowAt(double mouseX, double mouseY) {
+        int top = this.contentTop();
+        if (mouseX < this.contentLeft() - 2 || mouseX >= this.contentRight() + 2 || mouseY < top || mouseY >= top + this.getBodyHeight()) {
             return null;
         }
         int y = top - (int) this.scroll;
         for (Row row : this.rows) {
             if (mouseY >= y && mouseY < y + row.height()) {
-                return row;
+                return new RowHit(row, y);
             }
             y += row.height();
         }
