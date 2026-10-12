@@ -1,6 +1,5 @@
 package net.questz.init;
 
-import net.questz.access.PlayerAccess;
 import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.api.EnvType;
@@ -9,7 +8,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.questz.quest.QuestScreen;
+import net.questz.client.screen.QuestBookScreen;
 
 @Environment(EnvType.CLIENT)
 public class KeyInit {
@@ -22,7 +21,7 @@ public class KeyInit {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (screenKey.wasPressed()) {
                 if (client.player != null && client.player.networkHandler != null) {
-                    client.setScreen(new QuestScreen(client.player.networkHandler.getAdvancementHandler(), null, ((PlayerAccess) client.player).getQuestTab()));
+                    client.setScreen(new QuestBookScreen());
                     return;
                 }
             }

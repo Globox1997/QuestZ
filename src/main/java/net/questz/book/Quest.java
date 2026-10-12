@@ -3,7 +3,6 @@ package net.questz.book;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextCodecs;
 import net.questz.reward.Reward;
@@ -12,18 +11,18 @@ import net.questz.task.Task;
 import java.util.List;
 import java.util.Optional;
 
-public record Quest(String id, Text title, List<Text> description, ItemStack icon, double x, double y, float size, QuestShape shape, List<String> dependencies,
+public record Quest(String id, Text title, List<Text> description, Optional<ItemStack> icon, double x, double y, float size, QuestShape shape, List<String> dependencies,
                     DependencyMode dependencyMode, QuestVisibility visibility, List<Task> tasks, List<Reward> rewards, boolean repeatable, boolean autoClaim) {
 
     public static final Codec<Quest> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             QuestBook.ID_CODEC.fieldOf("id").forGetter(Quest::id),
             TextCodecs.CODEC.optionalFieldOf("title", Text.empty()).forGetter(Quest::title),
             TextCodecs.CODEC.listOf().optionalFieldOf("description", List.of()).forGetter(Quest::description),
-            ItemStack.UNCOUNTED_CODEC.optionalFieldOf("icon", new ItemStack(Items.BOOK)).forGetter(Quest::icon),
+            ItemStack.UNCOUNTED_CODEC.optionalFieldOf("icon").forGetter(Quest::icon),
             Codec.DOUBLE.optionalFieldOf("x", 0.0D).forGetter(Quest::x),
             Codec.DOUBLE.optionalFieldOf("y", 0.0D).forGetter(Quest::y),
             Codec.FLOAT.optionalFieldOf("size", 1.0F).forGetter(Quest::size),
-            QuestShape.CODEC.optionalFieldOf("shape", QuestShape.CIRCLE).forGetter(Quest::shape),
+            QuestShape.CODEC.optionalFieldOf("shape", QuestShape.TASK).forGetter(Quest::shape),
             QuestBook.ID_CODEC.listOf().optionalFieldOf("dependencies", List.of()).forGetter(Quest::dependencies),
             DependencyMode.CODEC.optionalFieldOf("dependency_mode", DependencyMode.ALL).forGetter(Quest::dependencyMode),
             QuestVisibility.CODEC.optionalFieldOf("visibility", QuestVisibility.ALWAYS).forGetter(Quest::visibility),
@@ -32,6 +31,16 @@ public record Quest(String id, Text title, List<Text> description, ItemStack ico
             Codec.BOOL.optionalFieldOf("repeatable", false).forGetter(Quest::repeatable),
             Codec.BOOL.optionalFieldOf("auto_claim", false).forGetter(Quest::autoClaim)
     ).apply(instance, Quest::new));
+
+    public Quest withPosition(double x, double y) {
+        return new Quest(this.id, this.title, this.description, this.icon, x, y, this.size, this.shape, this.dependencies, this.dependencyMode, this.visibility, this.tasks, this.rewards,
+                this.repeatable, this.autoClaim);
+    }
+
+    public Quest withDependencies(List<String> dependencies) {
+        return new Quest(this.id, this.title, this.description, this.icon, this.x, this.y, this.size, this.shape, List.copyOf(dependencies), this.dependencyMode, this.visibility,
+                this.tasks, this.rewards, this.repeatable, this.autoClaim);
+    }
 
     public Optional<Task> getTask(String taskId) {
         return this.tasks.stream().filter(task -> task.getId().equals(taskId)).findFirst();

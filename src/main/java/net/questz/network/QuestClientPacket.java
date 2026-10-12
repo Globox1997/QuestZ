@@ -13,6 +13,7 @@ public class QuestClientPacket {
     public static void init() {
         ClientPlayNetworking.registerGlobalReceiver(BookResetPacket.PACKET_ID, (payload, context) -> ClientQuestData.resetBook());
         ClientPlayNetworking.registerGlobalReceiver(ChapterSyncPacket.PACKET_ID, (payload, context) -> ClientQuestData.putChapter(payload.chapter()));
+        ClientPlayNetworking.registerGlobalReceiver(ChapterRemovePacket.PACKET_ID, (payload, context) -> ClientQuestData.removeChapter(payload.chapterId()));
         ClientPlayNetworking.registerGlobalReceiver(TeamSyncPacket.PACKET_ID, (payload, context) -> ClientQuestData.setTeam(payload));
         ClientPlayNetworking.registerGlobalReceiver(TaskProgressPacket.PACKET_ID, (payload, context) -> ClientQuestData.setTaskProgress(payload.questId(), payload.taskId(), payload.progress()));
         ClientPlayNetworking.registerGlobalReceiver(QuestStatePacket.PACKET_ID, (payload, context) -> ClientQuestData.applyQuestState(payload));

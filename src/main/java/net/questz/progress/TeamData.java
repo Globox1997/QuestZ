@@ -19,7 +19,8 @@ public class TeamData implements ProgressView {
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("progress", Map.of()).forGetter(team -> team.progress),
             Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("completed", Map.of()).forGetter(team -> team.completed),
             Codec.unboundedMap(Codec.STRING, Uuids.LINKED_SET_CODEC).optionalFieldOf("claimed", Map.of()).forGetter(team -> team.claimed),
-            Codec.STRING.listOf().optionalFieldOf("team_claimed", List.of()).forGetter(team -> List.copyOf(team.teamClaimed))
+            Codec.STRING.listOf().optionalFieldOf("team_claimed", List.of()).forGetter(team -> List.copyOf(team.teamClaimed)),
+            Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("completions", Map.of()).forGetter(team -> team.completions)
     ).apply(instance, TeamData::new));
 
     private final UUID id;
@@ -31,9 +32,10 @@ public class TeamData implements ProgressView {
     private final Map<String, Long> completed;
     private final Map<String, Set<UUID>> claimed;
     private final Set<String> teamClaimed;
+    private final Map<String, Integer> completions;
 
     private TeamData(UUID id, String name, UUID owner, boolean party, Set<UUID> members, Map<String, Long> progress, Map<String, Long> completed, Map<String, Set<UUID>> claimed,
-                     List<String> teamClaimed) {
+                     List<String> teamClaimed, Map<String, Integer> completions) {
         this.id = id;
         this.name = name;
         this.owner = owner;
@@ -44,14 +46,15 @@ public class TeamData implements ProgressView {
         this.claimed = new HashMap<>();
         claimed.forEach((key, players) -> this.claimed.put(key, new LinkedHashSet<>(players)));
         this.teamClaimed = new HashSet<>(teamClaimed);
+        this.completions = new HashMap<>(completions);
     }
 
     public static TeamData createPersonal(UUID player, String name) {
-        return new TeamData(player, name, player, false, Set.of(player), Map.of(), Map.of(), Map.of(), List.of());
+        return new TeamData(player, name, player, false, Set.of(player), Map.of(), Map.of(), Map.of(), List.of(), Map.of());
     }
 
     public static TeamData createParty(UUID id, String name, UUID owner) {
-        return new TeamData(id, name, owner, true, Set.of(owner), Map.of(), Map.of(), Map.of(), List.of());
+        return new TeamData(id, name, owner, true, Set.of(owner), Map.of(), Map.of(), Map.of(), List.of(), Map.of());
     }
 
     public static String key(String questId, String entryId) {
@@ -147,6 +150,16 @@ public class TeamData implements ProgressView {
 
     void setCompleted(String questId, long time) {
         this.completed.put(questId, time);
+        this.completions.merge(questId, 1, Integer::sum);
+    }
+
+    @Override
+    public int getCompletions(String questId) {
+        return this.completions.getOrDefault(questId, 0);
+    }
+
+    public Map<String, Integer> getCompletionsMap() {
+        return Collections.unmodifiableMap(this.completions);
     }
 
     public boolean isRewardClaimed(String questId, String rewardId, UUID player, boolean teamReward) {
@@ -167,12 +180,15 @@ public class TeamData implements ProgressView {
         }
     }
 
-    void resetQuest(String questId) {
+    void resetQuest(String questId, boolean keepCompletions) {
         String prefix = questId + "/";
         this.progress.keySet().removeIf(key -> key.startsWith(prefix));
         this.claimed.keySet().removeIf(key -> key.startsWith(prefix));
         this.teamClaimed.removeIf(key -> key.startsWith(prefix));
         this.completed.remove(questId);
+        if (!keepCompletions) {
+            this.completions.remove(questId);
+        }
     }
 
 }

@@ -1,0 +1,114 @@
+package net.questz.client.screen;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+import net.questz.book.Chapter;
+import net.questz.book.DependencyMode;
+import net.questz.book.Quest;
+import net.questz.book.QuestBook;
+import net.questz.client.ClientQuestData;
+import net.questz.client.ClientTeam;
+import net.questz.client.render.TaskRenderers;
+import net.questz.progress.ProgressView;
+import net.questz.progress.QuestEngine;
+
+@Environment(EnvType.CLIENT)
+public class QuestTexts {
+
+    public static final ProgressView NO_PROGRESS = new ProgressView() {
+        @Override
+        public boolean isCompleted(String questId) {
+            return false;
+        }
+
+        @Override
+        public long getProgress(String questId, String taskId) {
+            return 0L;
+        }
+
+        @Override
+        public int getCompletions(String questId) {
+            return 0;
+        }
+    };
+
+    public static ProgressView progress() {
+        ClientTeam team = ClientQuestData.getTeam();
+        return team != null ? team : NO_PROGRESS;
+    }
+
+    public static Text title(Quest quest) {
+        return quest.title().getString().isEmpty() ? Text.literal(quest.id()) : quest.title();
+    }
+
+    public static ItemStack icon(Quest quest) {
+        if (quest.icon().isPresent()) {
+            return quest.icon().get();
+        }
+        return quest.tasks().isEmpty() ? new ItemStack(Items.BOOK) : TaskRenderers.getIcon(quest.tasks().getFirst());
+    }
+
+    public static Text chapterTitle(Chapter chapter) {
+        return chapter.title().getString().isEmpty() ? Text.literal(chapter.id()) : chapter.title();
+    }
+
+    public static boolean isUnlocked(QuestBook book, ProgressView progress, Quest quest) {
+        return progress.isCompleted(quest.id()) || QuestEngine.areDependenciesMet(book, progress, quest);
+    }
+
+    public static boolean hasClaimableRewards(Quest quest) {
+        ClientTeam team = ClientQuestData.getTeam();
+        return team != null && team.isCompleted(quest.id())
+                && quest.rewards().stream().anyMatch(reward -> !reward.requiresChoice() && !team.isRewardClaimed(quest.id(), reward.getId()));
+    }
+
+    public static boolean isClaimable(Quest quest) {
+        ClientTeam team = ClientQuestData.getTeam();
+        return team != null && team.isCompleted(quest.id()) && quest.rewards().stream().anyMatch(reward -> !team.isRewardClaimed(quest.id(), reward.getId()));
+    }
+
+    public static Text status(QuestBook book, ProgressView progress, Quest quest) {
+        return status(book, progress, quest, false);
+    }
+
+    public static Text status(QuestBook book, ProgressView progress, Quest quest, boolean lightBackground) {
+        if (progress.isCompleted(quest.id())) {
+            return Text.translatable("gui.questz.status.completed").formatted(lightBackground ? Formatting.DARK_GREEN : Formatting.GREEN);
+        }
+        if (QuestEngine.areDependenciesMet(book, progress, quest)) {
+            return Text.translatable("gui.questz.status.available").formatted(lightBackground ? Formatting.GOLD : Formatting.YELLOW);
+        }
+        return Text.translatable("gui.questz.status.locked").formatted(lightBackground ? Formatting.DARK_GRAY : Formatting.GRAY);
+    }
+
+    public static Text requirements(QuestBook book, ProgressView progress, Quest quest) {
+        return requirements(book, progress, quest, false);
+    }
+
+    public static Text requirements(QuestBook book, ProgressView progress, Quest quest, boolean lightBackground) {
+        Formatting separator = lightBackground ? Formatting.DARK_GRAY : Formatting.GRAY;
+        MutableText names = Text.empty();
+        boolean first = true;
+        for (String dependencyId : quest.dependencies()) {
+            Quest dependency = book.getQuest(dependencyId);
+            if (dependency == null) {
+                continue;
+            }
+            if (!first) {
+                names.append(Text.literal(", ").formatted(separator));
+            }
+            Formatting done = lightBackground ? Formatting.DARK_GREEN : Formatting.GREEN;
+            Formatting missing = lightBackground ? Formatting.DARK_RED : Formatting.RED;
+            names.append(title(dependency).copy().formatted(progress.hasEverCompleted(dependencyId) ? done : missing));
+            first = false;
+        }
+        String key = quest.dependencyMode() == DependencyMode.ALL ? "gui.questz.requires.all" : "gui.questz.requires.any";
+        return Text.translatable(key, names).formatted(separator);
+    }
+
+}

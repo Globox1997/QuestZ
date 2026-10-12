@@ -72,7 +72,8 @@ public class TeamManager {
         if (party.getMembers().contains(target.getUuid())) {
             return TeamResult.ALREADY_MEMBER;
         }
-        INVITES.computeIfAbsent(target.getUuid(), uuid -> new HashSet<>()).add(party.getId());
+        INVITES.computeIfAbsent(target.getUuid(), uuid -> new LinkedHashSet<>()).add(party.getId());
+        QuestzEvents.TEAM_INVITED.invoker().onTeamInvited(owner.getServer(), target, party);
         return TeamResult.SUCCESS;
     }
 

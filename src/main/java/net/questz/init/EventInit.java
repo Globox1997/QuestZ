@@ -3,6 +3,7 @@ package net.questz.init;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.Text;
@@ -10,6 +11,7 @@ import net.minecraft.util.Formatting;
 import net.questz.api.QuestzEvents;
 import net.questz.book.QuestBookManager;
 import net.questz.command.QuestzCommand;
+import net.questz.network.packet.QuestStatePacket;
 import net.questz.progress.QuestEngine;
 import net.questz.progress.TeamData;
 import net.questz.progress.TeamManager;
@@ -40,6 +42,10 @@ public class EventInit {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> CriterionBridge.onDisconnect(handler.getPlayer()));
 
         QuestzEvents.BOOK_CHANGED.register((server, book) -> CriterionBridge.syncAll(server));
+        QuestzEvents.CHAPTER_CHANGED.register((server, chapterId, chapter) -> {
+            QuestEngine.checkOnlineTeams(server);
+            CriterionBridge.syncAll(server);
+        });
         QuestzEvents.TEAM_CHANGED.register((server, player, previous, current) -> {
             ActiveTasks.invalidate(previous.getId());
             CriterionBridge.sync(player);
@@ -54,8 +60,11 @@ public class EventInit {
             CriterionBridge.syncTeam(server, team);
             Text name = QuestzCommand.questName(quest);
             for (ServerPlayerEntity member : team.getOnlineMembers(server)) {
+                if (ServerPlayNetworking.canSend(member, QuestStatePacket.PACKET_ID)) {
+                    continue;
+                }
                 member.sendMessage(Text.translatable("quest.questz.completed", name).formatted(Formatting.GREEN), false);
-                if (!quest.autoClaim() && QuestEngine.hasUnclaimedRewards(member, team, quest)) {
+                if (!QuestEngine.isAutoClaim(quest) && QuestEngine.hasUnclaimedRewards(member, team, quest)) {
                     Text claim = Text.translatable("quest.questz.claim").styled(style -> style.withColor(Formatting.GOLD)
                             .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/questz claim " + quest.id())));
                     member.sendMessage(Text.translatable("quest.questz.rewards_available", claim), false);

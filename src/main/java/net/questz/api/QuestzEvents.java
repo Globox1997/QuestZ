@@ -4,17 +4,25 @@ import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.questz.book.Chapter;
 import net.questz.book.Quest;
 import net.questz.book.QuestBook;
 import net.questz.progress.TeamData;
 import net.questz.reward.Reward;
 import net.questz.task.Task;
+import org.jetbrains.annotations.Nullable;
 
 public class QuestzEvents {
 
     public static final Event<BookChanged> BOOK_CHANGED = EventFactory.createArrayBacked(BookChanged.class, listeners -> (server, book) -> {
         for (BookChanged listener : listeners) {
             listener.onBookChanged(server, book);
+        }
+    });
+
+    public static final Event<ChapterChanged> CHAPTER_CHANGED = EventFactory.createArrayBacked(ChapterChanged.class, listeners -> (server, chapterId, chapter) -> {
+        for (ChapterChanged listener : listeners) {
+            listener.onChapterChanged(server, chapterId, chapter);
         }
     });
 
@@ -48,6 +56,12 @@ public class QuestzEvents {
         }
     });
 
+    public static final Event<TeamInvited> TEAM_INVITED = EventFactory.createArrayBacked(TeamInvited.class, listeners -> (server, player, party) -> {
+        for (TeamInvited listener : listeners) {
+            listener.onTeamInvited(server, player, party);
+        }
+    });
+
     public static final Event<TeamChanged> TEAM_CHANGED = EventFactory.createArrayBacked(TeamChanged.class, listeners -> (server, player, previous, current) -> {
         for (TeamChanged listener : listeners) {
             listener.onTeamChanged(server, player, previous, current);
@@ -57,6 +71,11 @@ public class QuestzEvents {
     @FunctionalInterface
     public interface BookChanged {
         void onBookChanged(MinecraftServer server, QuestBook book);
+    }
+
+    @FunctionalInterface
+    public interface ChapterChanged {
+        void onChapterChanged(MinecraftServer server, String chapterId, @Nullable Chapter chapter);
     }
 
     @FunctionalInterface
@@ -82,6 +101,11 @@ public class QuestzEvents {
     @FunctionalInterface
     public interface TeamUpdated {
         void onTeamUpdated(MinecraftServer server, TeamData team);
+    }
+
+    @FunctionalInterface
+    public interface TeamInvited {
+        void onTeamInvited(MinecraftServer server, ServerPlayerEntity player, TeamData party);
     }
 
     @FunctionalInterface

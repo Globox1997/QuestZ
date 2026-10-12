@@ -15,7 +15,9 @@ public class QuestBookManager {
     }
 
     public static void load(MinecraftServer server) {
-        setBook(server, QuestStorage.load(server));
+        book = QuestStorage.load(server);
+        ActiveTasks.invalidateAll();
+        QuestzEvents.BOOK_CHANGED.invoker().onBookChanged(server, book);
         QuestzMain.LOGGER.info("Loaded {} quest chapters with {} quests", book.getChapters().size(), book.getQuests().size());
     }
 
@@ -28,7 +30,9 @@ public class QuestBookManager {
         if (!QuestStorage.saveChapter(server, chapter)) {
             return false;
         }
-        setBook(server, book.withChapter(chapter));
+        book = book.withChapter(chapter);
+        ActiveTasks.invalidateAll();
+        QuestzEvents.CHAPTER_CHANGED.invoker().onChapterChanged(server, chapter.id(), book.getChapter(chapter.id()));
         return true;
     }
 
@@ -36,14 +40,10 @@ public class QuestBookManager {
         if (!QuestStorage.deleteChapter(server, chapterId)) {
             return false;
         }
-        setBook(server, book.withoutChapter(chapterId));
-        return true;
-    }
-
-    private static void setBook(MinecraftServer server, QuestBook newBook) {
-        book = newBook;
+        book = book.withoutChapter(chapterId);
         ActiveTasks.invalidateAll();
-        QuestzEvents.BOOK_CHANGED.invoker().onBookChanged(server, newBook);
+        QuestzEvents.CHAPTER_CHANGED.invoker().onChapterChanged(server, chapterId, null);
+        return true;
     }
 
 }

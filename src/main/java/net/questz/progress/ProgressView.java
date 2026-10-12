@@ -6,4 +6,10 @@ public interface ProgressView {
 
     long getProgress(String questId, String taskId);
 
+    int getCompletions(String questId);
+
+    default boolean hasEverCompleted(String questId) {
+        return this.isCompleted(questId) || this.getCompletions(questId) > 0;
+    }
+
 }

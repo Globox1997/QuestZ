@@ -4,7 +4,6 @@ import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
 import net.questz.api.QuestzRegistries;
 import net.questz.init.*;
-import net.questz.network.QuestServerPacket;
 import net.questz.network.QuestSync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,13 +15,11 @@ public class QuestzMain implements ModInitializer {
     @Override
     public void onInitialize() {
         ConfigInit.init();
-        CriteriaInit.init();
         QuestzRegistries.init();
         TaskTypeInit.init();
         RewardTypeInit.init();
         EventInit.init();
         CommandInit.init();
-        QuestServerPacket.init();
         QuestSync.init();
     }
 

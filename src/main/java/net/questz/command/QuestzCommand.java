@@ -118,9 +118,7 @@ public class QuestzCommand {
         QuestBookManager.load(server);
         QuestBook book = QuestBookManager.getBook();
 
-        Set<TeamData> teams = new LinkedHashSet<>();
-        server.getPlayerManager().getPlayerList().forEach(player -> teams.add(TeamManager.getTeam(player)));
-        teams.forEach(team -> QuestEngine.checkTeam(server, team));
+        QuestEngine.checkOnlineTeams(server);
 
         context.getSource().sendFeedback(() -> Text.translatable("command.questz.reload", book.getChapters().size(), book.getQuests().size()), true);
         if (!book.getProblems().isEmpty()) {

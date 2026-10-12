@@ -41,6 +41,10 @@ public abstract class Reward {
         return QuestzRegistries.REWARD_TYPE.getId(this.getType());
     }
 
+    public boolean requiresChoice() {
+        return false;
+    }
+
     public abstract void claim(ServerPlayerEntity player);
 
     protected static <T extends Reward> RecordCodecBuilder<T, String> idField() {

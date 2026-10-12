@@ -4,20 +4,10 @@
   "package": "net.questz.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "AdvancementCriterionMixin",
-    "AdvancementDisplayMixin",
-    "AdvancementDisplaysMixin",
-    "AdvancementMixin",
-    "AdvancementRewardsMixin",
-    "LootContextPredicateAccessor",
     "PlayerAdvancementTrackerMixin",
     "ServerPlayerEntityMixin"
   ],
-  "client": [
-    "client.AdvancementsScreenMixin",
-    "client.ClientPlayerEntityMixin",
-    "client.TextFieldWidgetAccessor"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

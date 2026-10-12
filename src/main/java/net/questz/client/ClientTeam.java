@@ -20,6 +20,8 @@ public class ClientTeam implements ProgressView {
     private final Map<String, Long> progress;
     private final Map<String, Long> completed;
     private final Set<String> claimed;
+    private final Map<String, Integer> completions;
+    private final Map<UUID, String> invites;
 
     public ClientTeam(TeamSyncPacket packet) {
         this.id = packet.teamId();
@@ -30,6 +32,17 @@ public class ClientTeam implements ProgressView {
         this.progress = new HashMap<>(packet.progress());
         this.completed = new HashMap<>(packet.completed());
         this.claimed = new HashSet<>(packet.claimed());
+        this.completions = new HashMap<>(packet.completions());
+        this.invites = new LinkedHashMap<>(packet.invites());
+    }
+
+    @Override
+    public int getCompletions(String questId) {
+        return this.completions.getOrDefault(questId, 0);
+    }
+
+    public Map<UUID, String> getInvites() {
+        return Collections.unmodifiableMap(this.invites);
     }
 
     public UUID getId() {
@@ -84,6 +97,11 @@ public class ClientTeam implements ProgressView {
         this.claimed.removeIf(key -> key.startsWith(prefix));
         packet.progress().forEach((taskId, value) -> this.progress.put(TeamData.key(packet.questId(), taskId), value));
         packet.claimedRewards().forEach(rewardId -> this.claimed.add(TeamData.key(packet.questId(), rewardId)));
+        if (packet.completions() > 0) {
+            this.completions.put(packet.questId(), packet.completions());
+        } else {
+            this.completions.remove(packet.questId());
+        }
         if (packet.completedAt() > 0L) {
             this.completed.put(packet.questId(), packet.completedAt());
         } else {
