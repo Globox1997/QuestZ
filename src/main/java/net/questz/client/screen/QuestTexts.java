@@ -3,7 +3,11 @@ package net.questz.client.screen;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.texture.MissingSprite;
+import net.minecraft.client.texture.Sprite;
+import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -13,6 +17,7 @@ import net.questz.book.Quest;
 import net.questz.book.QuestBook;
 import net.questz.client.ClientQuestData;
 import net.questz.client.ClientTeam;
+import net.questz.client.render.DisplayNames;
 import net.questz.client.render.TaskRenderers;
 import net.questz.progress.ProgressView;
 import net.questz.progress.QuestEngine;
@@ -47,10 +52,19 @@ public class QuestTexts {
     }
 
     public static ItemStack icon(Quest quest) {
-        if (quest.icon().isPresent()) {
-            return quest.icon().get();
+        if (!quest.icons().isEmpty()) {
+            return DisplayNames.cycle(quest.icons());
         }
-        return quest.tasks().isEmpty() ? new ItemStack(Items.BOOK) : TaskRenderers.getIcon(quest.tasks().getFirst());
+        return quest.tasks().isEmpty() ? ItemStack.EMPTY : TaskRenderers.getIcon(quest.tasks().getFirst());
+    }
+
+    public static void drawIcon(DrawContext context, ItemStack icon, int x, int y) {
+        if (icon.isEmpty()) {
+            Sprite sprite = MinecraftClient.getInstance().getSpriteAtlas(PlayerScreenHandler.BLOCK_ATLAS_TEXTURE).apply(MissingSprite.getMissingSpriteId());
+            context.drawSprite(x, y, 0, 16, 16, sprite);
+        } else {
+            context.drawItemWithoutEntity(icon, x, y);
+        }
     }
 
     public static Text chapterTitle(Chapter chapter) {

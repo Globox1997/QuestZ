@@ -52,7 +52,7 @@ public class QuestToast implements Toast {
         context.drawText(textRenderer, this.header, 30, 7, 0xFFFFFF00, false);
         StringVisitable trimmed = textRenderer.trimToWidth(this.title, this.getWidth() - 36);
         context.drawText(textRenderer, Language.getInstance().reorder(trimmed), 30, 18, 0xFFFFFFFF, false);
-        context.drawItemWithoutEntity(this.icon, 8, 8);
+        QuestTexts.drawIcon(context, this.icon, 8, 8);
         return startTime >= DURATION ? Visibility.HIDE : Visibility.SHOW;
     }
 

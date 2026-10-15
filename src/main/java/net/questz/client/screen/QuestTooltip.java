@@ -149,7 +149,7 @@ public class QuestTooltip {
             int lineY = flipUp ? y + 26 - boxHeight + 7 + i * 9 : y + 9 + 17 + i * 9;
             context.drawText(textRenderer, lines.get(i), boxX + 5, lineY, DESCRIPTION_COLOR, false);
         }
-        context.drawItemWithoutEntity(QuestTexts.icon(quest), x + 8, y + 5);
+        QuestTexts.drawIcon(context, QuestTexts.icon(quest), x + 8, y + 5);
         context.getMatrices().pop();
     }
 

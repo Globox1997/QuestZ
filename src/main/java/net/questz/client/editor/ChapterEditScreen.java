@@ -8,10 +8,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -24,7 +22,6 @@ import net.questz.network.packet.EditChapterPacket;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Environment(EnvType.CLIENT)
@@ -38,6 +35,8 @@ public class ChapterEditScreen extends Screen {
     private String orderValue;
     private String backgroundValue;
     private TextFieldWidget iconField;
+    @Nullable
+    private IdSuggester iconSuggester;
     private TextFieldWidget orderField;
     private TextFieldWidget backgroundField;
     private ButtonWidget saveButton;
@@ -48,7 +47,7 @@ public class ChapterEditScreen extends Screen {
         this.original = chapter;
         this.isNew = isNew;
         this.titleValue = ClientEditor.toEditString(chapter.title());
-        this.iconValue = Registries.ITEM.getId(chapter.icon().getItem()).toString();
+        this.iconValue = ItemStrings.format(chapter.icon());
         this.orderValue = String.valueOf(chapter.order());
         this.backgroundValue = chapter.background().map(Identifier::toString).orElse("");
     }
@@ -62,10 +61,13 @@ public class ChapterEditScreen extends Screen {
         titleField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.title.tooltip")));
         titleField.setChangedListener(value -> this.titleValue = value);
         this.iconField = this.field(left, 74, width - 20, "gui.questz.editor.icon", this.iconValue);
+        this.iconField.setMaxLength(2048);
+        this.iconField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.field.item.tooltip")));
         this.iconField.setChangedListener(value -> {
             this.iconValue = value;
             this.updateValidity();
         });
+        this.iconSuggester = new IdSuggester(this.textRenderer, this.iconField, IdSuggester.registryIds(RegistryKeys.ITEM, false), false);
         this.orderField = this.field(left, 108, width, "gui.questz.editor.order", this.orderValue);
         this.orderField.setTooltip(Tooltip.of(Text.translatable("gui.questz.editor.order.tooltip")));
         this.orderField.setChangedListener(value -> {
@@ -102,9 +104,8 @@ public class ChapterEditScreen extends Screen {
     }
 
     @Nullable
-    private Item parseIcon() {
-        Identifier id = Identifier.tryParse(this.iconValue.trim().toLowerCase(Locale.ROOT));
-        return id != null && Registries.ITEM.containsId(id) && Registries.ITEM.get(id) != Items.AIR ? Registries.ITEM.get(id) : null;
+    private ItemStack parseIcon() {
+        return ItemStrings.parse(this.iconValue).result().orElse(null);
     }
 
     @Nullable
@@ -131,12 +132,11 @@ public class ChapterEditScreen extends Screen {
     }
 
     private void save() {
-        Item item = this.parseIcon();
+        ItemStack icon = this.parseIcon();
         Integer order = this.parseOrder();
-        if (item == null || order == null || !this.isBackgroundValid()) {
+        if (icon == null || order == null || !this.isBackgroundValid()) {
             return;
         }
-        ItemStack icon = this.original.icon().isOf(item) ? this.original.icon() : new ItemStack(item);
         Optional<Identifier> background = this.backgroundValue.isBlank() ? Optional.empty() : Optional.ofNullable(Identifier.tryParse(this.backgroundValue.trim()));
         Chapter chapter = new Chapter(this.original.id(), ClientEditor.fromEditString(this.titleValue), icon, order, background, this.original.lineStyle(), List.of());
         ClientEditor.send(new EditChapterPacket(chapter));
@@ -175,12 +175,39 @@ public class ChapterEditScreen extends Screen {
         for (int i = 0; i < labels.length; i++) {
             context.drawText(this.textRenderer, Text.translatable(labels[i]), labelLeft, labelY[i], QuestzGui.COLOR_LABEL, false);
         }
-        Item item = this.parseIcon();
-        if (item != null) {
+        ItemStack icon = this.parseIcon();
+        if (icon != null) {
             int width = Math.min(this.width - 20, 220);
             int left = (this.width - width) / 2;
-            context.drawItem(new ItemStack(item), left + width - 17, 75);
+            context.drawItem(icon, left + width - 17, 75);
         }
+        if (this.iconSuggester != null) {
+            this.iconSuggester.render(context, mouseX, mouseY, this.height);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (this.iconSuggester != null && this.iconSuggester.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (this.iconSuggester != null && this.iconSuggester.mouseScrolled(mouseX, mouseY, verticalAmount)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.iconSuggester != null && this.iconSuggester.keyPressed(keyCode)) {
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override

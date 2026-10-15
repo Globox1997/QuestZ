@@ -7,6 +7,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
@@ -38,14 +39,14 @@ public class EntryTemplates {
         }
         return switch (type.getPath()) {
             case "checkmark" -> List.of();
-            case "item" -> List.of(FormField.item("item"), FormField.number("count"), FormField.bool("consume"));
-            case "kill" -> List.of(FormField.text("entity"), FormField.number("count"));
-            case "mine", "place" -> List.of(FormField.text("block"), FormField.number("count"));
-            case "craft", "use" -> List.of(FormField.text("item"), FormField.number("count"));
-            case "stat" -> List.of(FormField.text("stat"), FormField.number("count"));
-            case "dimension" -> List.of(FormField.text("dimension"));
-            case "biome" -> List.of(FormField.text("biome"));
-            case "structure" -> List.of(FormField.text("structure"));
+            case "item" -> List.of(FormField.itemList("item"), FormField.number("count"), FormField.bool("consume"));
+            case "kill" -> List.of(FormField.idList("entity", RegistryKeys.ENTITY_TYPE), FormField.number("count"));
+            case "mine", "place" -> List.of(FormField.idList("block", RegistryKeys.BLOCK), FormField.number("count"));
+            case "craft", "use" -> List.of(FormField.idList("item", RegistryKeys.ITEM, "items"), FormField.number("count"));
+            case "stat" -> List.of(FormField.id("stat", RegistryKeys.CUSTOM_STAT), FormField.number("count"));
+            case "dimension" -> List.of(FormField.id("dimension", RegistryKeys.WORLD));
+            case "biome" -> List.of(FormField.idList("biome", RegistryKeys.BIOME));
+            case "structure" -> List.of(FormField.idList("structure", RegistryKeys.STRUCTURE));
             case "advancement" -> List.of(FormField.text("advancement"));
             default -> null;
         };

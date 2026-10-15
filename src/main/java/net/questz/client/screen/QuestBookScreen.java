@@ -573,7 +573,7 @@ public class QuestBookScreen extends Screen {
             RenderSystem.setShaderColor(0.45F, 0.45F, 0.45F, 1.0F);
         }
         context.drawGuiTexture(status.getFrameTexture(quest.shape().getFrame()), -13, -13, 26, 26);
-        context.drawItemWithoutEntity(QuestTexts.icon(quest), -8, -8);
+        QuestTexts.drawIcon(context, QuestTexts.icon(quest), -8, -8);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         if (QuestTexts.isClaimable(quest)) {
             matrices.translate(0.0F, 0.0F, 200.0F);
@@ -907,8 +907,8 @@ public class QuestBookScreen extends Screen {
 
     private void createQuest(Chapter chapter, double x, double y) {
         Text title = Text.literal(Text.translatable("gui.questz.editor.new_quest_title").getString());
-        Quest quest = new Quest(this.book.generateId(), title, List.of(), Optional.empty(), x, y, 1.0F, QuestShape.TASK, List.of(), DependencyMode.ALL, QuestVisibility.ALWAYS,
-                List.of(), List.of(), false, false);
+        Quest quest = new Quest(this.book.generateId(), title, List.of(), List.of(), x, y, 1.0F, QuestShape.TASK, List.of(), DependencyMode.ALL, QuestVisibility.ALWAYS,
+                List.of(), DependencyMode.ALL, List.of(), false, false);
         if (this.client != null) {
             this.client.setScreen(new QuestEditScreen(this, chapter.id(), quest));
         }

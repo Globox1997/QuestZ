@@ -15,10 +15,12 @@ import net.minecraft.screen.ScreenTexts;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.StringVisitable;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Language;
 import net.minecraft.util.math.MathHelper;
+import net.questz.book.DependencyMode;
 import net.questz.book.Quest;
 import net.questz.book.QuestBook;
 import net.questz.client.ClientQuestData;
@@ -39,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Environment(EnvType.CLIENT)
 public class QuestDetailScreen extends Screen {
@@ -56,14 +59,22 @@ public class QuestDetailScreen extends Screen {
     private static final int COLOR_DONE = 0xFF55FF55;
     private static final int COLOR_HEADER = 0xFFFFAA00;
     private static final int COLOR_HOVER = 0x20FFFFFF;
+    private static final int COLOR_SELECTION = 0xC03060D0;
     private static final int TRACK_WIDTH = QuestzGui.SCROLLBAR_WIDTH;
     private static final int INSET_BORDER = QuestzGui.INSET_BORDER;
 
-    private record Row(int height, @Nullable OrderedText text, int color, @Nullable Task task, @Nullable Reward reward, int option) {
+    private record Row(int height, @Nullable OrderedText text, int color, @Nullable Task task, @Nullable Reward reward, int option, int line) {
 
         Row(int height, @Nullable OrderedText text, int color, @Nullable Task task, @Nullable Reward reward) {
-            this(height, text, color, task, reward, -1);
+            this(height, text, color, task, reward, -1, -1);
         }
+
+        Row(int height, @Nullable Reward reward, int option) {
+            this(height, null, 0, null, reward, option, -1);
+        }
+    }
+
+    private record TextLine(String plain, int[] offsets, boolean paragraphStart) {
     }
 
     private record InlineButton(Text label, boolean active, Runnable action) {
@@ -78,6 +89,12 @@ public class QuestDetailScreen extends Screen {
     @Nullable
     private Quest quest;
     private final List<Row> rows = new ArrayList<>();
+    private final List<TextLine> lines = new ArrayList<>();
+    private int anchorLine = -1;
+    private int anchorChar;
+    private int caretLine = -1;
+    private int caretChar;
+    private boolean selecting;
     private int contentHeight;
     private double scroll;
     private boolean draggingScrollbar;
@@ -187,17 +204,23 @@ public class QuestDetailScreen extends Screen {
 
     private void buildRows() {
         this.rows.clear();
+        this.lines.clear();
+        this.clearSelection();
         int width = this.contentRight() - this.contentLeft();
         for (Text description : this.quest.description()) {
-            for (OrderedText line : this.textRenderer.wrapLines(description, width)) {
-                this.rows.add(new Row(TEXT_HEIGHT, line, COLOR_DESCRIPTION, null, null));
+            List<StringVisitable> wrapped = this.textRenderer.getTextHandler().wrapLines(description, width, Style.EMPTY);
+            for (int i = 0; i < wrapped.size(); i++) {
+                StringVisitable part = wrapped.get(i);
+                this.lines.add(new TextLine(part.getString(), this.measure(part), i == 0));
+                this.rows.add(new Row(TEXT_HEIGHT, Language.getInstance().reorder(part), COLOR_DESCRIPTION, null, null, -1, this.lines.size() - 1));
             }
         }
         if (!this.quest.description().isEmpty()) {
             this.rows.add(new Row(6, null, 0, null, null));
         }
         if (!this.quest.tasks().isEmpty()) {
-            this.rows.add(new Row(12, Text.translatable("gui.questz.tasks").asOrderedText(), COLOR_HEADER, null, null));
+            Text header = Text.translatable(this.quest.taskMode() == DependencyMode.ANY && this.quest.tasks().size() > 1 ? "gui.questz.tasks.any" : "gui.questz.tasks");
+            this.rows.add(new Row(12, header.asOrderedText(), COLOR_HEADER, null, null));
             for (Task task : this.quest.tasks()) {
                 this.rows.add(new Row(ENTRY_HEIGHT, null, 0, task, null));
             }
@@ -209,13 +232,104 @@ public class QuestDetailScreen extends Screen {
                 this.rows.add(new Row(ENTRY_HEIGHT, null, 0, null, reward));
                 if (reward instanceof ChoiceReward choice) {
                     for (int i = 0; i < choice.getOptions().size(); i++) {
-                        this.rows.add(new Row(ENTRY_HEIGHT, null, 0, null, reward, i));
+                        this.rows.add(new Row(ENTRY_HEIGHT, reward, i));
                     }
                 }
             }
         }
         this.contentHeight = this.rows.stream().mapToInt(Row::height).sum();
         this.scroll = MathHelper.clamp(this.scroll, 0.0D, this.getMaxScroll());
+    }
+
+    private int[] measure(StringVisitable part) {
+        String plain = part.getString();
+        int[] offsets = new int[plain.length() + 1];
+        int[] index = {0};
+        part.visit((style, string) -> {
+            for (int i = 0; i < string.length() && index[0] < plain.length(); i++) {
+                offsets[index[0] + 1] = offsets[index[0]] + this.textRenderer.getWidth(StringVisitable.styled(String.valueOf(string.charAt(i)), style));
+                index[0]++;
+            }
+            return Optional.empty();
+        }, Style.EMPTY);
+        for (int i = index[0] + 1; i < offsets.length; i++) {
+            offsets[i] = offsets[i - 1];
+        }
+        return offsets;
+    }
+
+    private void clearSelection() {
+        this.anchorLine = -1;
+        this.caretLine = -1;
+        this.selecting = false;
+    }
+
+    private boolean hasSelection() {
+        return this.anchorLine >= 0 && this.caretLine >= 0 && (this.anchorLine != this.caretLine || this.anchorChar != this.caretChar);
+    }
+
+    private boolean isAnchorFirst() {
+        return this.anchorLine < this.caretLine || (this.anchorLine == this.caretLine && this.anchorChar <= this.caretChar);
+    }
+
+    @Nullable
+    private int[] getSelectionRange(int line) {
+        boolean anchorFirst = this.isAnchorFirst();
+        int startLine = anchorFirst ? this.anchorLine : this.caretLine;
+        int startChar = anchorFirst ? this.anchorChar : this.caretChar;
+        int endLine = anchorFirst ? this.caretLine : this.anchorLine;
+        int endChar = anchorFirst ? this.caretChar : this.anchorChar;
+        if (line < startLine || line > endLine) {
+            return null;
+        }
+        int length = this.lines.get(line).plain().length();
+        return new int[]{line == startLine ? startChar : 0, line == endLine ? endChar : length};
+    }
+
+    private String getSelectedText() {
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (int line = 0; line < this.lines.size(); line++) {
+            int[] range = this.getSelectionRange(line);
+            if (range == null) {
+                continue;
+            }
+            TextLine textLine = this.lines.get(line);
+            if (!first) {
+                builder.append(textLine.paragraphStart() ? "\n" : " ");
+            }
+            builder.append(textLine.plain(), range[0], range[1]);
+            first = false;
+        }
+        return builder.toString();
+    }
+
+    private int[] getTextPosition(double mouseX, double mouseY) {
+        int y = this.contentTop() - (int) this.scroll;
+        int lastLine = -1;
+        for (Row row : this.rows) {
+            if (row.line() >= 0) {
+                if (mouseY < y) {
+                    return new int[]{row.line(), 0};
+                }
+                if (mouseY < y + row.height()) {
+                    return new int[]{row.line(), this.getCharAt(this.lines.get(row.line()), mouseX - this.contentLeft())};
+                }
+                lastLine = row.line();
+            }
+            y += row.height();
+        }
+        return new int[]{lastLine, lastLine >= 0 ? this.lines.get(lastLine).plain().length() : 0};
+    }
+
+    private int getCharAt(TextLine line, double x) {
+        int[] offsets = line.offsets();
+        for (int i = 0; i < offsets.length - 1; i++) {
+            if (x < (offsets[i] + offsets[i + 1]) / 2.0D) {
+                return i;
+            }
+        }
+        return offsets.length - 1;
     }
 
     private OrderedText trim(Text text, int width) {
@@ -258,7 +372,7 @@ public class QuestDetailScreen extends Screen {
         boolean completed = progress.isCompleted(this.quest.id());
         AdvancementObtainedStatus status = completed ? AdvancementObtainedStatus.OBTAINED : AdvancementObtainedStatus.UNOBTAINED;
         context.drawGuiTexture(status.getFrameTexture(this.quest.shape().getFrame()), this.panelX + 6, this.panelY + 6, 26, 26);
-        context.drawItemWithoutEntity(QuestTexts.icon(this.quest), this.panelX + 11, this.panelY + 11);
+        QuestTexts.drawIcon(context, QuestTexts.icon(this.quest), this.panelX + 11, this.panelY + 11);
         int textWidth = PANEL_WIDTH - 48 - (this.quest.repeatable() ? 18 : 0);
         context.drawTextWithShadow(this.textRenderer, this.trim(QuestTexts.title(this.quest), textWidth), this.panelX + 37, this.panelY + 9, COLOR_TEXT);
         if (this.quest.repeatable()) {
@@ -292,6 +406,11 @@ public class QuestDetailScreen extends Screen {
                 InlineButton inlineButton = this.getInlineButton(row);
                 int buttonWidth = inlineButton != null ? this.getInlineButtonWidth(inlineButton) : 0;
                 if (row.text() != null) {
+                    int[] range = row.line() >= 0 && this.hasSelection() ? this.getSelectionRange(row.line()) : null;
+                    if (range != null && range[1] > range[0]) {
+                        int[] offsets = this.lines.get(row.line()).offsets();
+                        context.fill(left + offsets[range[0]], y, left + offsets[range[1]], y + row.height(), COLOR_SELECTION);
+                    }
                     context.drawText(this.textRenderer, row.text(), left, y + 1, row.color(), true);
                 } else if (row.task() != null) {
                     Task task = row.task();
@@ -416,8 +535,8 @@ public class QuestDetailScreen extends Screen {
         if (mouseX < iconLeft || mouseX >= iconLeft + QuestzGui.SLOT_SIZE) {
             return;
         }
-        if (row.task() instanceof ItemTask itemTask) {
-            context.drawItemTooltip(this.textRenderer, itemTask.getItem(), mouseX, mouseY);
+        if (row.task() instanceof ItemTask itemTask && !TaskRenderers.getIcon(itemTask).isEmpty()) {
+            context.drawItemTooltip(this.textRenderer, TaskRenderers.getIcon(itemTask), mouseX, mouseY);
         } else if (row.task() != null) {
             context.drawTooltip(this.textRenderer, TaskRenderers.getTitle(row.task()), mouseX, mouseY);
         } else if (row.reward() instanceof ItemReward itemReward) {
@@ -455,6 +574,18 @@ public class QuestDetailScreen extends Screen {
             return true;
         }
         RowHit hit = this.getRowAt(mouseX, mouseY);
+        if (hit != null && hit.row().line() >= 0) {
+            int[] position = this.getTextPosition(mouseX, mouseY);
+            if (!hasShiftDown() || this.anchorLine < 0) {
+                this.anchorLine = position[0];
+                this.anchorChar = position[1];
+            }
+            this.caretLine = position[0];
+            this.caretChar = position[1];
+            this.selecting = true;
+            return true;
+        }
+        this.clearSelection();
         if (hit != null) {
             InlineButton inlineButton = this.getInlineButton(hit.row());
             if (inlineButton != null && inlineButton.active() && this.isOverInlineButton(inlineButton, hit.y(), hit.row().height(), mouseX, mouseY)) {
@@ -471,6 +602,17 @@ public class QuestDetailScreen extends Screen {
             this.scrollToHandle(mouseY - this.dragOffset);
             return true;
         }
+        if (this.selecting && button == 0) {
+            int top = this.contentTop();
+            int bottom = top + this.getBodyHeight();
+            if (mouseY < top || mouseY >= bottom) {
+                this.scroll = MathHelper.clamp(this.scroll + (mouseY < top ? -4.0D : 4.0D), 0.0D, this.getMaxScroll());
+            }
+            int[] position = this.getTextPosition(mouseX, mouseY);
+            this.caretLine = position[0];
+            this.caretChar = position[1];
+            return true;
+        }
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
@@ -478,6 +620,10 @@ public class QuestDetailScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (this.draggingScrollbar && button == 0) {
             this.draggingScrollbar = false;
+            return true;
+        }
+        if (this.selecting && button == 0) {
+            this.selecting = false;
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -516,6 +662,17 @@ public class QuestDetailScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (Screen.isCopy(keyCode) && this.hasSelection() && this.client != null) {
+            this.client.keyboard.setClipboard(this.getSelectedText());
+            return true;
+        }
+        if (Screen.isSelectAll(keyCode) && !this.lines.isEmpty()) {
+            this.anchorLine = 0;
+            this.anchorChar = 0;
+            this.caretLine = this.lines.size() - 1;
+            this.caretChar = this.lines.getLast().plain().length();
+            return true;
+        }
         if (this.client != null && (KeyInit.screenKey.matchesKey(keyCode, scanCode) || this.client.options.inventoryKey.matchesKey(keyCode, scanCode))) {
             this.client.setScreen(null);
             return true;

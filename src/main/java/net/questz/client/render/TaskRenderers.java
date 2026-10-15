@@ -7,10 +7,12 @@ import net.minecraft.advancement.AdvancementEntry;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.SpawnEggItem;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
@@ -18,7 +20,9 @@ import net.questz.api.QuestzRegistries;
 import net.questz.init.TaskTypeInit;
 import net.questz.task.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -42,6 +46,14 @@ public class TaskRenderers {
 
     public static ItemStack getIcon(Task task) {
         return get(task).map(renderer -> renderer.getIcon(task)).orElseGet(() -> new ItemStack(Items.PAPER));
+    }
+
+    public static List<ItemStack> itemTaskIcons(ItemTask task) {
+        List<ItemStack> icons = new ArrayList<>(task.getItems());
+        for (TagKey<Item> tag : task.getTags()) {
+            Registries.ITEM.iterateEntries(tag).forEach(entry -> icons.add(new ItemStack(entry)));
+        }
+        return icons;
     }
 
     private static ItemStack blockIcon(Block block) {
@@ -78,11 +90,15 @@ public class TaskRenderers {
         });
         register(TaskTypeInit.ITEM, new TaskRenderer<>() {
             public Text getTitle(ItemTask task) {
-                return Text.translatable(task.isConsume() ? "task.questz.item.submit" : "task.questz.item", task.getItem().getName());
+                List<Text> names = new ArrayList<>();
+                task.getItems().forEach(item -> names.add(item.getName()));
+                task.getTags().forEach(tag -> names.add(DisplayNames.ofTag(tag)));
+                return Text.translatable(task.isConsume() ? "task.questz.item.submit" : "task.questz.item", DisplayNames.ofAlternatives(names));
             }
 
             public ItemStack getIcon(ItemTask task) {
-                return task.getItem();
+                List<ItemStack> icons = itemTaskIcons(task);
+                return icons.isEmpty() ? ItemStack.EMPTY : DisplayNames.cycle(icons);
             }
         });
         register(TaskTypeInit.KILL, new TaskRenderer<>() {

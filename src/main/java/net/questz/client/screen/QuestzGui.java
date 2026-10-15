@@ -20,6 +20,8 @@ public class QuestzGui {
     public static final Identifier STAR = QuestzMain.identifierOf("textures/gui/star.png");
     public static final Identifier ARROW_LEFT = QuestzMain.identifierOf("textures/gui/arrow_left.png");
     public static final Identifier ARROW_RIGHT = QuestzMain.identifierOf("textures/gui/arrow_right.png");
+    public static final Identifier ARROW_UP = QuestzMain.identifierOf("textures/gui/arrow_up.png");
+    public static final Identifier ARROW_DOWN = QuestzMain.identifierOf("textures/gui/arrow_down.png");
     public static final Identifier REFRESH = QuestzMain.identifierOf("textures/gui/refresh.png");
     public static final Identifier BUTTON = Identifier.ofVanilla("widget/button");
     public static final Identifier BUTTON_HIGHLIGHTED = Identifier.ofVanilla("widget/button_highlighted");

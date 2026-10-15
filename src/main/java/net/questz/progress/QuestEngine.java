@@ -66,7 +66,13 @@ public class QuestEngine {
     }
 
     public static boolean areTasksComplete(ProgressView team, Quest quest) {
-        return !quest.tasks().isEmpty() && quest.tasks().stream().allMatch(task -> isTaskComplete(team, quest, task));
+        if (quest.tasks().isEmpty()) {
+            return false;
+        }
+        if (quest.taskMode() == DependencyMode.ANY) {
+            return quest.tasks().stream().anyMatch(task -> isTaskComplete(team, quest, task));
+        }
+        return quest.tasks().stream().allMatch(task -> isTaskComplete(team, quest, task));
     }
 
     public static void addProgress(MinecraftServer server, TeamData team, Quest quest, Task task, long amount) {
