@@ -69,7 +69,15 @@ public class QuestzCommand {
                         .then(literal("reset").then(argument("quest", StringArgumentType.word()).suggests(QUEST_SUGGESTIONS)
                                 .executes(context -> reset(context, context.getSource().getPlayerOrThrow()))
                                 .then(argument("player", EntityArgumentType.player())
-                                        .executes(context -> reset(context, EntityArgumentType.getPlayer(context, "player")))))))
+                                        .executes(context -> reset(context, EntityArgumentType.getPlayer(context, "player"))))))
+                        .then(literal("completeall")
+                                .executes(context -> completeAll(context, List.of(context.getSource().getPlayerOrThrow())))
+                                .then(argument("players", EntityArgumentType.players())
+                                        .executes(context -> completeAll(context, EntityArgumentType.getPlayers(context, "players")))))
+                        .then(literal("resetall")
+                                .executes(context -> resetAll(context, List.of(context.getSource().getPlayerOrThrow())))
+                                .then(argument("players", EntityArgumentType.players())
+                                        .executes(context -> resetAll(context, EntityArgumentType.getPlayers(context, "players"))))))
                 .then(literal("claim").then(argument("quest", StringArgumentType.word()).suggests(QUEST_SUGGESTIONS).executes(QuestzCommand::claim)))
                 .then(literal("submit").then(argument("quest", StringArgumentType.word()).suggests(QUEST_SUGGESTIONS).executes(QuestzCommand::submit)))
                 .then(literal("team")
@@ -175,6 +183,41 @@ public class QuestzCommand {
         QuestEngine.reset(context.getSource().getServer(), team, quest);
         context.getSource().sendFeedback(() -> Text.translatable("command.questz.quest.reset", questName(quest), team.getName()), true);
         return 1;
+    }
+
+    private static Collection<TeamData> teamsOf(Collection<ServerPlayerEntity> players) {
+        Map<UUID, TeamData> teams = new LinkedHashMap<>();
+        for (ServerPlayerEntity player : players) {
+            TeamData team = TeamManager.getTeam(player);
+            teams.putIfAbsent(team.getId(), team);
+        }
+        return teams.values();
+    }
+
+    private static int completeAll(CommandContext<ServerCommandSource> context, Collection<ServerPlayerEntity> players) {
+        MinecraftServer server = context.getSource().getServer();
+        List<Quest> quests = QuestBookManager.getBook().getQuests().stream().toList();
+        Collection<TeamData> teams = teamsOf(players);
+        for (TeamData team : teams) {
+            for (Quest quest : quests) {
+                QuestEngine.forceComplete(server, team, quest);
+            }
+            context.getSource().sendFeedback(() -> Text.translatable("command.questz.quest.complete_all", quests.size(), team.getName()), true);
+        }
+        return teams.size();
+    }
+
+    private static int resetAll(CommandContext<ServerCommandSource> context, Collection<ServerPlayerEntity> players) {
+        MinecraftServer server = context.getSource().getServer();
+        List<Quest> quests = QuestBookManager.getBook().getQuests().stream().toList();
+        Collection<TeamData> teams = teamsOf(players);
+        for (TeamData team : teams) {
+            for (Quest quest : quests) {
+                QuestEngine.reset(server, team, quest);
+            }
+            context.getSource().sendFeedback(() -> Text.translatable("command.questz.quest.reset_all", quests.size(), team.getName()), true);
+        }
+        return teams.size();
     }
 
     private static int claim(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {

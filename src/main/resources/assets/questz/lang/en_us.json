@@ -214,6 +214,8 @@
     "command.questz.quest.progress.entry": " %s (%s): %s/%s",
     "command.questz.quest.complete": "Completed quest %s for team %s",
     "command.questz.quest.reset": "Reset quest %s for team %s",
+    "command.questz.quest.complete_all": "Completed all %s quests for team %s",
+    "command.questz.quest.reset_all": "Reset all %s quests for team %s",
     "command.questz.claim.not_completed": "Quest %s is not completed yet",
     "command.questz.claim.nothing": "There are no rewards left to claim from %s",
     "command.questz.claim.success": "Claimed %s rewards from %s",
