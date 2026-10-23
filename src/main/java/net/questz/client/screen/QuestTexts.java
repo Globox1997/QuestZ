@@ -5,6 +5,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.item.ItemStack;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.advancement.AdvancementObtainedStatus;
 import net.minecraft.client.texture.MissingSprite;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.screen.PlayerScreenHandler;
@@ -15,6 +16,7 @@ import net.questz.book.Chapter;
 import net.questz.book.DependencyMode;
 import net.questz.book.Quest;
 import net.questz.book.QuestBook;
+import net.questz.book.QuestVisibility;
 import net.questz.client.ClientQuestData;
 import net.questz.client.ClientTeam;
 import net.questz.client.render.DisplayNames;
@@ -24,6 +26,11 @@ import net.questz.progress.QuestEngine;
 
 @Environment(EnvType.CLIENT)
 public class QuestTexts {
+
+    private static final float[] NO_TINT = {1.0F, 1.0F, 1.0F};
+    private static final float[] SECRET_TINT = {0.7F, 0.42F, 0.9F};
+    private static final float[] SECRET_DONE_TINT = {0.95F, 0.55F, 1.0F};
+    private static final float[] DEPENDENCIES_VISIBLE_TINT = {1.0F, 0.6F, 0.15F};
 
     public static final ProgressView NO_PROGRESS = new ProgressView() {
         @Override
@@ -45,6 +52,17 @@ public class QuestTexts {
     public static ProgressView progress() {
         ClientTeam team = ClientQuestData.getTeam();
         return team != null ? team : NO_PROGRESS;
+    }
+
+    public static AdvancementObtainedStatus frameStatus(Quest quest, AdvancementObtainedStatus status) {
+        return quest.visibility() == QuestVisibility.SECRET ? AdvancementObtainedStatus.UNOBTAINED : status;
+    }
+
+    public static float[] frameTint(Quest quest, boolean editing, boolean completed) {
+        if (quest.visibility() == QuestVisibility.SECRET) {
+            return completed ? SECRET_DONE_TINT : SECRET_TINT;
+        }
+        return quest.visibility() == QuestVisibility.DEPENDENCIES_VISIBLE && editing ? DEPENDENCIES_VISIBLE_TINT : NO_TINT;
     }
 
     public static Text title(Quest quest) {

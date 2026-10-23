@@ -27,6 +27,7 @@ import net.questz.client.editor.ChapterEditScreen;
 import net.questz.client.editor.ClientEditor;
 import net.questz.client.editor.ContextMenu;
 import net.questz.client.editor.QuestEditScreen;
+import net.questz.init.ConfigInit;
 import net.questz.init.KeyInit;
 import net.questz.network.packet.DeleteQuestPacket;
 import net.questz.network.packet.EditChapterPacket;
@@ -64,8 +65,10 @@ public class QuestBookScreen extends Screen {
     private static final float EDIT_TINT_GREEN = 0.8F;
     private static final float EDIT_TINT_BLUE = 1.0F;
     public static final int GRID = 28;
-    private static final float MIN_SCALE = 0.5F;
     private static final float MAX_SCALE = 1.5F;
+    private static final float[] NO_TINT = {1.0F, 1.0F, 1.0F, 1.0F};
+    private static final float[] HIDDEN_TINT = {0.6F, 0.6F, 1.0F, 0.6F};
+    private static final float[] LOCKED_TINT = {0.45F, 0.45F, 0.45F, 1.0F};
 
     private static final Map<String, View> VIEWS = new HashMap<>();
     @Nullable
@@ -264,7 +267,7 @@ public class QuestBookScreen extends Screen {
             }
             double contentWidth = (maxX - minX) * GRID + GRID * 2;
             double contentHeight = (maxY - minY) * GRID + GRID * 2;
-            view.scale = MathHelper.clamp((float) Math.min(this.mapWidth() / contentWidth, this.mapHeight() / contentHeight), MIN_SCALE, 1.0F);
+            view.scale = MathHelper.clamp((float) Math.min(this.mapWidth() / contentWidth, this.mapHeight() / contentHeight), getMinScale(), 1.0F);
             view.originX = this.mapWidth() / 2.0D / view.scale - (minX + maxX) / 2.0D * GRID;
             view.originY = this.mapHeight() / 2.0D / view.scale - (minY + maxY) / 2.0D * GRID;
             return view;
@@ -549,6 +552,10 @@ public class QuestBookScreen extends Screen {
         matrices.pop();
     }
 
+    private static float getMinScale() {
+        return 1.0F - MathHelper.clamp(ConfigInit.CONFIG.zoomOut, 0, 90) / 100.0F;
+    }
+
     private void drawNode(DrawContext context, ProgressView progress, Quest quest) {
         boolean completed = progress.isCompleted(quest.id());
         boolean unlocked = QuestTexts.isUnlocked(this.book, progress, quest);
@@ -567,12 +574,11 @@ public class QuestBookScreen extends Screen {
                 context.drawBorder(-15, -15, 30, 30, 0xFF55FF55);
             }
         }
-        if (hidden) {
-            RenderSystem.setShaderColor(0.6F, 0.6F, 1.0F, 0.6F);
-        } else if (!unlocked) {
-            RenderSystem.setShaderColor(0.45F, 0.45F, 0.45F, 1.0F);
-        }
-        context.drawGuiTexture(status.getFrameTexture(quest.shape().getFrame()), -13, -13, 26, 26);
+        float[] tint = hidden ? HIDDEN_TINT : !unlocked ? LOCKED_TINT : NO_TINT;
+        float[] frameTint = QuestTexts.frameTint(quest, this.isEditing(), completed);
+        RenderSystem.setShaderColor(tint[0] * frameTint[0], tint[1] * frameTint[1], tint[2] * frameTint[2], tint[3]);
+        context.drawGuiTexture(QuestTexts.frameStatus(quest, status).getFrameTexture(quest.shape().getFrame()), -13, -13, 26, 26);
+        RenderSystem.setShaderColor(tint[0], tint[1], tint[2], tint[3]);
         QuestTexts.drawIcon(context, QuestTexts.icon(quest), -8, -8);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         if (QuestTexts.isClaimable(quest)) {
@@ -722,19 +728,13 @@ public class QuestBookScreen extends Screen {
         if (button != 0) {
             return false;
         }
-        if (this.isEditing() && this.linkSourceId != null) {
-            if (quest != null && !quest.id().equals(this.linkSourceId)) {
-                this.toggleDependency(quest);
-            }
-            return true;
-        }
         this.pressedInMap = true;
         this.dragging = false;
         this.pressX = mouseX;
         this.pressY = mouseY;
         this.pressedQuestId = quest != null ? quest.id() : null;
         this.dragOrigins.clear();
-        if (this.isEditing() && quest != null) {
+        if (this.isEditing() && this.linkSourceId == null && quest != null) {
             for (Quest moved : Screen.hasControlDown() ? this.collectWithDependents(quest) : List.of(quest)) {
                 this.dragOrigins.put(moved.id(), new double[]{this.getX(moved), this.getY(moved)});
             }
@@ -803,6 +803,11 @@ public class QuestBookScreen extends Screen {
                 ClientEditor.send(new MoveQuestsPacket(moves));
                 this.playSound(SoundEvents.BLOCK_STONE_PLACE, 0.6F);
             }
+        } else if (!this.dragging && this.pressedQuestId != null && this.isEditing() && this.linkSourceId != null) {
+            Quest quest = this.book.getQuest(this.pressedQuestId);
+            if (quest != null && !quest.id().equals(this.linkSourceId)) {
+                this.toggleDependency(quest);
+            }
         } else if (!this.dragging && this.pressedQuestId != null && this.client != null) {
             Quest quest = this.book.getQuest(this.pressedQuestId);
             if (quest != null) {
@@ -827,7 +832,7 @@ public class QuestBookScreen extends Screen {
         }
         View view = this.getView(this.chapter);
         float oldScale = view.scale;
-        float newScale = MathHelper.clamp(oldScale + (verticalAmount > 0 ? 0.1F : -0.1F), MIN_SCALE, MAX_SCALE);
+        float newScale = MathHelper.clamp(oldScale + (verticalAmount > 0 ? 0.1F : -0.1F), getMinScale(), MAX_SCALE);
         if (newScale != oldScale) {
             double mapMouseX = mouseX - this.mapLeft();
             double mapMouseY = mouseY - this.mapTop();

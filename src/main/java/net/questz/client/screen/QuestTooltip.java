@@ -132,7 +132,10 @@ public class QuestTooltip {
         }
         context.drawGuiTexture(leftStatus.getBoxTexture(), 200, 26, 0, 0, boxX, y, filled, 26);
         context.drawGuiTexture(rightStatus.getBoxTexture(), 200, 26, 200 - remaining, 0, boxX + filled, y, remaining, 26);
-        context.drawGuiTexture(frameStatus.getFrameTexture(frame), x + 3, y, 26, 26);
+        float[] tint = QuestTexts.frameTint(quest, editing, completed);
+        RenderSystem.setShaderColor(tint[0], tint[1], tint[2], 1.0F);
+        context.drawGuiTexture(QuestTexts.frameStatus(quest, frameStatus).getFrameTexture(frame), x + 3, y, 26, 26);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         if (flipLeft) {
             context.drawTextWithShadow(textRenderer, title, boxX + 5, y + 9, -1);

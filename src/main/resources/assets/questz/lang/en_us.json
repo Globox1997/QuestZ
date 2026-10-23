@@ -51,7 +51,7 @@
     "gui.questz.editor.empty": "Right-click to create a chapter",
     "gui.questz.editor.hint": "Drag to move, right-click for options",
     "gui.questz.editor.hint.tooltip": "Hold Ctrl while dragging to move all dependent quests too",
-    "gui.questz.editor.link_mode": "Click quests to link them, right-click: done",
+    "gui.questz.editor.link_mode": "Click quests to link them, drag to move, right-click: done",
     "gui.questz.editor.hidden": "Hidden for players right now",
     "gui.questz.editor.menu.edit_quest": "Edit quest",
     "gui.questz.editor.menu.dependencies": "Edit dependencies",
@@ -254,5 +254,7 @@
     "command.questz.team.error.self": "You cannot do that to yourself",
     "command.questz.team.error.which_invite": "You have several invites, choose one: %s",
 
-    "text.autoconfig.questz.title": "QuestZ Config"
+    "text.autoconfig.questz.title": "QuestZ Config",
+    "text.autoconfig.questz.option.zoomOut": "Maximum zoom out (%)",
+    "text.autoconfig.questz.option.zoomOut.@Tooltip": "How far the quest map can be zoomed out. 0 disables zooming out, 90 allows zooming out to a tenth of the normal size"
 }
