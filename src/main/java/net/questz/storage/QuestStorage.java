@@ -5,12 +5,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.WorldSavePath;
 import net.questz.QuestzMain;
 import net.questz.book.Chapter;
 import net.questz.book.QuestBook;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -18,6 +20,8 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -25,13 +29,73 @@ import java.util.stream.Stream;
 public class QuestStorage {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+    private static final DateTimeFormatter BACKUP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     public static Path getChapterDirectory(MinecraftServer server) {
         return server.getSavePath(WorldSavePath.ROOT).resolve("questz").resolve("chapters");
     }
 
+    public static Path getDefaultDirectory() {
+        return FabricLoader.getInstance().getConfigDir().resolve("questz").resolve("default");
+    }
+
+    private static List<Path> listChapterFiles(Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return List.of();
+        }
+        try (Stream<Path> files = Files.list(directory)) {
+            return files.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(".json")).sorted().toList();
+        }
+    }
+
+    public static boolean hasDefaults() {
+        try {
+            return !listChapterFiles(getDefaultDirectory()).isEmpty();
+        } catch (IOException exception) {
+            return false;
+        }
+    }
+
+    private static int copyDefaults(Path target) throws IOException {
+        List<Path> defaults = listChapterFiles(getDefaultDirectory());
+        Files.createDirectories(target);
+        for (Path file : defaults) {
+            Files.copy(file, target.resolve(file.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
+        }
+        return defaults.size();
+    }
+
+    @Nullable
+    public static Path importDefaults(MinecraftServer server) {
+        Path directory = getChapterDirectory(server);
+        Path backup = server.getSavePath(WorldSavePath.ROOT).resolve("questz").resolve("backups").resolve(LocalDateTime.now().format(BACKUP_FORMAT));
+        try {
+            List<Path> current = listChapterFiles(directory);
+            if (!current.isEmpty()) {
+                Files.createDirectories(backup);
+                for (Path file : current) {
+                    Files.move(file, backup.resolve(file.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+            int copied = copyDefaults(directory);
+            QuestzMain.LOGGER.info("Imported {} default quest chapters from {}", copied, getDefaultDirectory());
+            return current.isEmpty() ? directory : backup;
+        } catch (IOException exception) {
+            QuestzMain.LOGGER.error("Failed to import the default quest chapters", exception);
+            return null;
+        }
+    }
+
     public static QuestBook load(MinecraftServer server) {
         Path directory = getChapterDirectory(server);
+        if (!Files.exists(directory) && hasDefaults()) {
+            try {
+                int copied = copyDefaults(directory);
+                QuestzMain.LOGGER.info("Installed {} default quest chapters from {}", copied, getDefaultDirectory());
+            } catch (IOException exception) {
+                QuestzMain.LOGGER.error("Failed to install the default quest chapters", exception);
+            }
+        }
         if (!Files.isDirectory(directory)) {
             return QuestBook.EMPTY;
         }

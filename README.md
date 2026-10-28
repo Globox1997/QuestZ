@@ -16,6 +16,10 @@ Quests are at ```WORLDFOLDER\questz\chapters\CHAPTERID.json```
 - Items are written like `{"id": "minecraft:diamond_sword"}`. Components can be added like `{"id": "minecraft:diamond_sword", "components": {"minecraft:damage": 10}}`.  
 - Fields for blocks, entities, items, biomes and structures accept one id, a tag starting with `#` like `"#minecraft:logs"` or a list like `["minecraft:zombie", "minecraft:husk"]`.
 
+#### Modpacks
+To ship quests with a modpack, put the chapter files into ```config\questz\default\```
+Every new world copies them into its own `questz\chapters` folder on the first start, after that the world keeps its own copy which can be edited in-game.
+
 #### Chapter
 A chapter requires:
 - id (string): the chapter id, should be the same as the file name
@@ -183,6 +187,9 @@ Every reward requires an `id` and a `type`. All rewards accept `team_reward` (bo
 ### Commands
 `/questz reload`
 - Load all quest files of the world again
+
+`/questz import default`
+- Replace the quest book of the world with the default quest book from `config\questz\default`
 
 `/questz quest complete quest [player]` and `/questz quest reset quest [player]`
 - Complete or reset one quest for the team of the player

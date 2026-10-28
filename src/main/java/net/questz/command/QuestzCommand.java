@@ -19,15 +19,18 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.UserCache;
+import net.minecraft.util.WorldSavePath;
 import net.questz.book.Chapter;
 import net.questz.book.Quest;
 import net.questz.book.QuestBook;
 import net.questz.book.QuestBookManager;
 import net.questz.progress.*;
+import net.questz.storage.QuestStorage;
 import net.questz.task.Task;
 import net.questz.tracking.TaskTracker;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -53,6 +56,7 @@ public class QuestzCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(literal("questz")
                 .then(literal("reload").requires(source -> source.hasPermissionLevel(2)).executes(QuestzCommand::reload))
+                .then(literal("import").requires(source -> source.hasPermissionLevel(2)).then(literal("default").executes(QuestzCommand::importDefaults)))
                 .then(literal("quest").requires(source -> source.hasPermissionLevel(2))
                         .then(literal("list")
                                 .executes(context -> listQuests(context, context.getSource().getPlayerOrThrow()))
@@ -133,6 +137,32 @@ public class QuestzCommand {
             context.getSource().sendFeedback(() -> Text.translatable("command.questz.reload.problems", book.getProblems().size()).formatted(Formatting.GOLD), false);
         }
         return book.getQuests().size();
+    }
+
+    private static int importDefaults(CommandContext<ServerCommandSource> context) {
+        MinecraftServer server = context.getSource().getServer();
+        if (!QuestStorage.hasDefaults()) {
+            context.getSource().sendError(Text.translatable("command.questz.import.missing", QuestStorage.getDefaultDirectory().toString()));
+            return 0;
+        }
+        Path backup = QuestStorage.importDefaults(server);
+        if (backup == null) {
+            context.getSource().sendError(Text.translatable("command.questz.import.failed"));
+            return 0;
+        }
+        QuestBookManager.load(server);
+        QuestEngine.checkOnlineTeams(server);
+        QuestBook book = QuestBookManager.getBook();
+        Path worldFolder = server.getSavePath(WorldSavePath.ROOT);
+        String backupName = worldFolder.toAbsolutePath().normalize().relativize(backup.toAbsolutePath().normalize()).toString();
+        context.getSource().sendFeedback(() -> Text.translatable("command.questz.import.success", book.getChapters().size(), book.getQuests().size()), true);
+        if (!backup.equals(QuestStorage.getChapterDirectory(server))) {
+            context.getSource().sendFeedback(() -> Text.translatable("command.questz.import.backup", backupName), false);
+        }
+        if (!book.getProblems().isEmpty()) {
+            context.getSource().sendFeedback(() -> Text.translatable("command.questz.reload.problems", book.getProblems().size()).formatted(Formatting.GOLD), false);
+        }
+        return book.getChapters().size();
     }
 
     private static int listQuests(CommandContext<ServerCommandSource> context, ServerPlayerEntity player) {
