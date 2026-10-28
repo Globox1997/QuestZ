@@ -1,11 +1,6 @@
 ### Added:
-- Tab order field
-- Tag system
-- Creation mode visibility
-- Requirement override text
-- Component requirement
+- Way to provide quests in modpacks
 ### Fixed:
-- Tab deletion 
-- Count issue
+- 
 ### Changed:
 - 
